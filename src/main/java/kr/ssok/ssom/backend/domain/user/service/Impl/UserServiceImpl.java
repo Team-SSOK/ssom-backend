@@ -1,22 +1,36 @@
 package kr.ssok.ssom.backend.domain.user.service.Impl;
 
+import kr.ssok.ssom.backend.domain.user.dto.LoginRequestDto;
+import kr.ssok.ssom.backend.domain.user.dto.LoginResponseDto;
 import kr.ssok.ssom.backend.domain.user.dto.SignupRequestDto;
+import kr.ssok.ssom.backend.domain.user.dto.UserResponseDto;
 import kr.ssok.ssom.backend.domain.user.entity.Department;
 import kr.ssok.ssom.backend.domain.user.entity.User;
+import kr.ssok.ssom.backend.domain.user.security.jwt.JwtTokenProvider;
 import kr.ssok.ssom.backend.domain.user.repository.UserRepository;
 import kr.ssok.ssom.backend.domain.user.service.UserService;
 import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
+    private final RedisTemplate<String, String> redisTemplate;
+    private final JwtTokenProvider jwtTokenProvider;
+
+    // Refresh Token을 저장하는 키 prefix
+    private static final String REFRESH_TOKEN_PREFIX = "refresh:token:";
+    // 블랙리스트 토큰을 저장하는 키 prefix
+    private static final String BLACKLIST_TOKEN_PREFIX = "blacklist:token:";
 
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
@@ -85,4 +99,60 @@ public class UserServiceImpl implements UserService {
             return newEmployeeId;
         }
     }
+
+    @Override
+    @Transactional
+    public LoginResponseDto login(LoginRequestDto requestDto) {
+        // 사원번호로 사용자 정보 조회
+        User user = findUserByEmployeeId(requestDto.getEmployeeId());
+
+        // 비밀번호 검증
+        if (!passwordEncoder.matches(requestDto.getPassword(), user.getPassword())) {
+            throw new BaseException(BaseResponseStatus.INVALID_PASSWORD);
+        }
+
+        // 토큰 생성 (사원번호를 userId로 사용)
+        String accessToken = jwtTokenProvider.createAccessToken(user.getId());
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+
+        // Refresh Token을 Redis에 저장
+        String refreshTokenKey = REFRESH_TOKEN_PREFIX + user.getId();
+        redisTemplate.opsForValue().set(
+                refreshTokenKey,
+                refreshToken,
+                jwtTokenProvider.getTokenExpirationTime(refreshToken),
+                TimeUnit.SECONDS
+        );
+
+        log.info("로그인 성공 - 사원번호: {}, 부서: {}", user.getId(), user.getDepartment());
+
+        // 응답 생성
+        return LoginResponseDto.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public User findUserByEmployeeId(String employeeId) {
+        return userRepository.findByEmployeeId(employeeId)
+                .orElseThrow(() -> new BaseException(BaseResponseStatus.USER_NOT_FOUND));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserResponseDto getUserInfo(String employeeId) {
+        User user = findUserByEmployeeId(employeeId);
+        
+        return UserResponseDto.builder()
+                .employeeId(user.getId())
+                .username(user.getUsername())
+                .phoneNumber(user.getPhoneNumber())
+                .department(user.getDepartment().name())
+                .departmentCode(user.getDepartment().getCode())
+                .githubId(user.getGithubId())
+                .build();
+    }
+
 }

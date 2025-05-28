@@ -14,7 +14,7 @@ public enum BaseResponseStatus {
 
     // 회원 관련 오류
     INVALID_SIGNUP_REQUEST_VALUE(false, 4002, "유효하지 않은 회원가입 양식입니다."),
-    INVALID_PIN_CODE(false, 4000, "유효하지 않은 PIN 번호입니다."),
+    INVALID_PASSWORD(false, 4000, "유효하지 않은 비밀번호입니다."),
     CODE_VERIFICATION_FAIL(false, 4001, "휴대폰 인증번호가 일치하지 않아, 인증에 실패했습니다."),
 
     // 인증 관련 오류
@@ -28,6 +28,7 @@ public enum BaseResponseStatus {
     PIN_CHANGE_AUTH_REQUIRED(false, 4017, "PIN 번호 변경을 위한 인증이 필요합니다.", HttpStatus.UNAUTHORIZED),
     PHONE_NUMBER_MISMATCH(false, 4018, "요청된 전화번호가 사용자 정보와 일치하지 않습니다.", HttpStatus.BAD_REQUEST),
 
+    USER_NOT_FOUND(false, 5011, "사용자를 찾을 수 없습니다."),
     USER_ALREADY_EXISTS(false, 5010, "이미 존재하는 사용자입니다.");
 
     private final boolean isSuccess;

@@ -14,9 +14,13 @@ import kr.ssok.ssom.backend.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,11 +28,55 @@ import java.util.stream.Collectors;
 @Transactional
 @Slf4j
 public class AlertServiceImpl implements AlertService {
+    private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60; // 1시간
+    private final Map<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
 
     private final AlertRepository alertRepository;
     private final AlertStatusRepository alertStatusRepository;
     private final UserRepository userRepository;
 
+    /*
+    * 알림 SSE 구독
+    * */
+    public SseEmitter subscribe(Long userId) {
+        log.info("[알림 SSE 구독] 서비스 진입");
+        
+        SseEmitter emitter = new SseEmitter(DEFAULT_TIMEOUT);
+        emitters.put(userId, emitter);
+
+        emitter.onCompletion(() -> emitters.remove(userId));
+        emitter.onTimeout(() -> emitters.remove(userId));
+
+        try {
+            emitter.send(SseEmitter.event().name("INIT").data("connected"));
+        } catch (IOException e) {
+            emitter.completeWithError(e);
+        }
+
+        return emitter;
+    }
+
+    /*
+     * 알림 SSE 전송
+     * */
+    public void sendAlertToUser(Long userId, AlertResponseDto alertResponseDto) {
+        log.info("[알림 SSE 전송] 서비스 진입");
+        
+        SseEmitter emitter = emitters.get(userId);
+        if (emitter != null) {
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("alert")
+                        .data(alertResponseDto));
+            } catch (IOException e) {
+                emitters.remove(userId);
+            }
+        }
+    }
+    
+    /*
+    * 알림 저장 및 전송
+    * */
     @Override
     public List<AlertResponseDto> createAlert(AlertRequestDto request, AlertKind kind) {
         // 1. Alert 저장
@@ -55,9 +103,16 @@ public class AlertServiceImpl implements AlertService {
         alertStatusRepository.saveAll(statusList);
 
         // 4. DTO로 변환 후 반환
-        return statusList.stream()
+        List<AlertResponseDto> dtoList = statusList.stream()
                 .map(AlertResponseDto::from)
                 .collect(Collectors.toList());
+
+        // 5. 알림 푸시
+        for (AlertResponseDto dto : dtoList) {
+            sendAlertToUser(dto.getUserId(), dto);
+        }
+
+        return dtoList;
     }
 
     /*

@@ -18,6 +18,7 @@ public class AlertResponseDto {
     private String kind;
     private boolean isRead;
     private LocalDateTime createdAt;
+    private String userId;
 
     public static AlertResponseDto from(AlertStatus status) {
         Alert alert = status.getAlert();
@@ -28,6 +29,7 @@ public class AlertResponseDto {
                 .kind(alert.getKind().getValue())
                 .isRead(status.isRead())
                 .createdAt(alert.getCreatedAt())
+                .userId(status.getUser().getUserId())
                 .build();
     }
 }

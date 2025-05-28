@@ -1,4 +1,8 @@
 package kr.ssok.ssom.backend.domain.user.service.Impl;
 
-public class UserServiceImpl {
+import kr.ssok.ssom.backend.domain.user.service.UserService;
+import org.springframework.stereotype.Service;
+
+@Service
+public class UserServiceImpl implements UserService {
 }

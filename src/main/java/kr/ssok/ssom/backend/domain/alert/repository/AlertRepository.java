@@ -1,4 +1,7 @@
 package kr.ssok.ssom.backend.domain.alert.repository;
 
-public interface AlertRepository {
+import kr.ssok.ssom.backend.domain.alert.entity.Alert;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface AlertRepository extends JpaRepository<Alert, Long> {
 }

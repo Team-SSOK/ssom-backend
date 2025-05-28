@@ -15,6 +15,10 @@ public enum BaseResponseStatus {
     // 회원 관련 오류
     INVALID_SIGNUP_REQUEST_VALUE(false, 4002, "유효하지 않은 회원가입 양식입니다."),
     INVALID_PASSWORD(false, 4000, "유효하지 않은 비밀번호입니다."),
+    INVALID_CURRENT_PASSWORD(false, 4003, "현재 비밀번호가 일치하지 않습니다."),
+    PASSWORD_CONFIRM_MISMATCH(false, 4004, "새 비밀번호와 비밀번호 확인이 일치하지 않습니다."),
+    SAME_AS_CURRENT_PASSWORD(false, 4005, "새 비밀번호가 현재 비밀번호와 동일합니다."),
+    PASSWORD_CHANGE_SUCCESS(true, 2004, "비밀번호 변경에 성공하였습니다."),
     CODE_VERIFICATION_FAIL(false, 4001, "휴대폰 인증번호가 일치하지 않아, 인증에 실패했습니다."),
 
     // 인증 관련 오류

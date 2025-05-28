@@ -2,6 +2,7 @@ package kr.ssok.ssom.backend.domain.user.service.Impl;
 
 import kr.ssok.ssom.backend.domain.user.dto.LoginRequestDto;
 import kr.ssok.ssom.backend.domain.user.dto.LoginResponseDto;
+import kr.ssok.ssom.backend.domain.user.dto.PasswordChangeRequestDto;
 import kr.ssok.ssom.backend.domain.user.dto.SignupRequestDto;
 import kr.ssok.ssom.backend.domain.user.dto.UserResponseDto;
 import kr.ssok.ssom.backend.domain.user.entity.Department;
@@ -35,6 +36,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
 
+    // 회원가입
     @Override
     @Transactional
     public void registerUser(SignupRequestDto requestDto) {
@@ -100,6 +102,7 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+    // 로그인
     @Override
     @Transactional
     public LoginResponseDto login(LoginRequestDto requestDto) {
@@ -133,18 +136,100 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
 
+    /**
+     * 토큰 갱신 구현
+     * Refresh Token 검증 후 새로운 Access/Refresh Token 발급
+     *
+     * @param refreshToken 리프레시 토큰
+     * @return 새로운 액세스 토큰과 리프레시 토큰이 포함된 응답
+     * @throws BaseException 토큰 검증 실패 시 발생
+     */
     @Override
-    @Transactional(readOnly = true)
-    public User findUserByEmployeeId(String employeeId) {
-        return userRepository.findByEmployeeId(employeeId)
-                .orElseThrow(() -> new BaseException(BaseResponseStatus.USER_NOT_FOUND));
+    @Transactional
+    public LoginResponseDto refreshToken(String refreshToken) {
+        // 토큰 유효성 검증
+        if (!jwtTokenProvider.validateToken(refreshToken)) {
+            throw new BaseException(BaseResponseStatus.INVALID_REFRESH_TOKEN);
+        }
+
+        // 토큰에서 사용자 ID 추출
+        String userId = jwtTokenProvider.getUserIdFromToken(refreshToken);
+
+        // Redis에 저장된 Refresh Token과 비교
+        String refreshTokenKey = REFRESH_TOKEN_PREFIX + userId;
+        String storedToken = redisTemplate.opsForValue().get(refreshTokenKey);
+
+        if (storedToken == null || !storedToken.equals(refreshToken)) {
+            throw new BaseException(BaseResponseStatus.INVALID_REFRESH_TOKEN);
+        }
+
+        // 사용자 정보 조회
+        User user = findUserByEmployeeId(userId);
+
+        // 새 토큰 생성
+        String newAccessToken = jwtTokenProvider.createAccessToken(user.getId());
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+
+        // 기존 Refresh Token 삭제
+        redisTemplate.delete(refreshTokenKey);
+
+        // 새 Refresh Token을 Redis에 저장
+        redisTemplate.opsForValue().set(
+                refreshTokenKey,
+                newRefreshToken,
+                jwtTokenProvider.getTokenExpirationTime(newRefreshToken),
+                TimeUnit.SECONDS
+        );
+
+        // 응답 생성
+        return LoginResponseDto.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(newRefreshToken)
+                .build();
     }
 
+    /**
+     * 로그아웃 처리 구현
+     * Access Token 블랙리스트 추가 및 Refresh Token 삭제
+     *
+     * @param accessToken 로그아웃할 액세스 토큰
+     * @throws BaseException 토큰이 유효하지 않을 경우 발생
+     */
+    @Override
+    public void logout(String accessToken) {
+        // 토큰에서 Bearer 제거
+        String token = jwtTokenProvider.resolveToken(accessToken);
+        if (token == null) {
+            throw new BaseException(BaseResponseStatus.INVALID_TOKEN);
+        }
+
+        // 토큰 유효성 검증
+        if (!jwtTokenProvider.validateToken(token)) {
+            throw new BaseException(BaseResponseStatus.INVALID_TOKEN);
+        }
+
+        // 토큰에서 사용자 ID 추출
+        String userId = jwtTokenProvider.getUserIdFromToken(token);
+
+        // Refresh Token 삭제
+        String refreshTokenKey = REFRESH_TOKEN_PREFIX + userId;
+        redisTemplate.delete(refreshTokenKey);
+
+        // Access Token 블랙리스트에 추가
+        long expiration = jwtTokenProvider.getTokenExpirationTime(token);
+        String blacklistKey = BLACKLIST_TOKEN_PREFIX + token;
+
+        redisTemplate.opsForValue().set(blacklistKey, "logout", expiration, TimeUnit.SECONDS);
+
+        log.info("로그아웃 성공. 사용자: {}", userId);
+    }
+
+    // 회원정보 조회
     @Override
     @Transactional(readOnly = true)
     public UserResponseDto getUserInfo(String employeeId) {
         User user = findUserByEmployeeId(employeeId);
-        
+
         return UserResponseDto.builder()
                 .employeeId(user.getId())
                 .username(user.getUsername())
@@ -155,4 +240,40 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
 
+
+    @Override
+    @Transactional(readOnly = true)
+    public User findUserByEmployeeId(String employeeId) {
+        return userRepository.findByEmployeeId(employeeId)
+                .orElseThrow(() -> new BaseException(BaseResponseStatus.USER_NOT_FOUND));
+    }
+
+    // 비밀번호 변경
+    @Override
+    @Transactional
+    public void changePassword(String employeeId, PasswordChangeRequestDto request) {
+        // 1. 새 비밀번호와 확인 비밀번호 일치 확인
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new BaseException(BaseResponseStatus.PASSWORD_CONFIRM_MISMATCH);
+        }
+        
+        // 2. 사용자 조회
+        User user = findUserByEmployeeId(employeeId);
+        
+        // 3. 현재 비밀번호 확인
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new BaseException(BaseResponseStatus.INVALID_CURRENT_PASSWORD);
+        }
+        
+        // 4. 새 비밀번호가 현재 비밀번호와 같은지 확인
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new BaseException(BaseResponseStatus.SAME_AS_CURRENT_PASSWORD);
+        }
+        
+        // 5. 새 비밀번호로 변경
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        
+        log.info("비밀번호 변경 성공 - 사원번호: {}", employeeId);
+    }
 }

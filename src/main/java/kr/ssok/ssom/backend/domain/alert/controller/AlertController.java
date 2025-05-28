@@ -4,15 +4,15 @@ import io.swagger.v3.oas.annotations.Operation;
 import kr.ssok.ssom.backend.domain.alert.dto.AlertModifyRequestDto;
 import kr.ssok.ssom.backend.domain.alert.dto.AlertRequestDto;
 import kr.ssok.ssom.backend.domain.alert.dto.AlertResponseDto;
-import kr.ssok.ssom.backend.domain.alert.dto.AlertSendRequestDto;
 import kr.ssok.ssom.backend.domain.alert.entity.constant.AlertKind;
 import kr.ssok.ssom.backend.domain.alert.service.AlertService;
 import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
@@ -23,6 +23,14 @@ import java.util.List;
 public class AlertController {
 
     private final AlertService alertService;
+
+    @Operation(summary = "알림 SSE 구독", description = "알림에 대해 SSE 구독을 진행합니다.")
+    @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter subscribe(@RequestParam Long userId) {
+        log.info("[알림 SSE 구독] userId: {}", userId);
+
+        return alertService.subscribe(userId);
+    }
 
     @Operation(summary = "전체 알림 목록 조회", description = "전체 알림 목록을 조회합니다.")
     @GetMapping

@@ -1,8 +1,8 @@
 package kr.ssok.ssom.backend.domain.logging.service;
 
 import kr.ssok.ssom.backend.domain.logging.dto.*;
-import kr.ssok.ssom.backend.global.dto.LogSummaryRequestDto;
-import kr.ssok.ssom.backend.global.dto.LogSummaryResponseDto;
+import kr.ssok.ssom.backend.global.dto.LogRequestDto;
+import kr.ssok.ssom.backend.global.dto.LogSummaryMessageDto;
 
 public interface LoggingService {
 
@@ -12,5 +12,5 @@ public interface LoggingService {
 
     LogInfoResponseDto getLogInfo(String logId);
 
-    LogSummaryResponseDto summarizeLog(LogSummaryRequestDto request);
+    LogSummaryMessageDto summarizeLog(LogRequestDto request);
 }

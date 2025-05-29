@@ -3,8 +3,8 @@ package kr.ssok.ssom.backend.domain.logging.service.Impl;
 import kr.ssok.ssom.backend.domain.logging.dto.*;
 import kr.ssok.ssom.backend.domain.logging.repository.LogSummaryRepository;
 import kr.ssok.ssom.backend.domain.logging.service.LoggingService;
-import kr.ssok.ssom.backend.global.dto.LogSummaryRequestDto;
-import kr.ssok.ssom.backend.global.dto.LogSummaryResponseDto;
+import kr.ssok.ssom.backend.global.dto.LogRequestDto;
+import kr.ssok.ssom.backend.global.dto.LogSummaryMessageDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,7 +39,7 @@ public class LoggingServiceImpl implements LoggingService {
 
     // 로그 상세 조회 중 로그 LLM 요약
     @Override
-    public LogSummaryResponseDto summarizeLog(LogSummaryRequestDto request) {
+    public LogSummaryMessageDto summarizeLog(LogRequestDto request) {
 
         // LLM 쪽 api 이용해서 정보 받아오기 -> dto를 entity로 변환
 

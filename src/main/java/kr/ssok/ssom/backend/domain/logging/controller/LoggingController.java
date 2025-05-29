@@ -2,8 +2,8 @@ package kr.ssok.ssom.backend.domain.logging.controller;
 
 import kr.ssok.ssom.backend.domain.logging.dto.*;
 import kr.ssok.ssom.backend.domain.logging.service.LoggingService;
-import kr.ssok.ssom.backend.global.dto.LogSummaryRequestDto;
-import kr.ssok.ssom.backend.global.dto.LogSummaryResponseDto;
+import kr.ssok.ssom.backend.global.dto.LogRequestDto;
+import kr.ssok.ssom.backend.global.dto.LogSummaryMessageDto;
 import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
@@ -54,10 +54,10 @@ public class LoggingController {
 
     // 로그 상세 조회 중 로그 LLM 요약
     @PostMapping("/{logId}")
-    public ResponseEntity<BaseResponse<LogSummaryResponseDto>> summarizeLog(@PathVariable String logId, @RequestBody LogSummaryRequestDto request) {
+    public ResponseEntity<BaseResponse<LogSummaryMessageDto>> summarizeLog(@PathVariable String logId, @RequestBody LogRequestDto request) {
 
         log.info("로그 요약 요청(logId: {})", logId);
-        LogSummaryResponseDto response = loggingService.summarizeLog(request);
+        LogSummaryMessageDto response = loggingService.summarizeLog(request);
 
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, response));
 

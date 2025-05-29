@@ -9,7 +9,10 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LogSummaryResponseDto {
-    private LogRequestDto log;
-    private LogSummaryMessageDto message;
+public class LogRequestDto {
+    private String level;
+    private String logger;
+    private String thread;
+    private String message;
+    private String app;
 }

@@ -1,5 +1,6 @@
 package kr.ssok.ssom.backend.domain.alert.service;
 
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import kr.ssok.ssom.backend.domain.alert.dto.AlertModifyRequestDto;
 import kr.ssok.ssom.backend.domain.alert.dto.AlertRequestDto;
@@ -29,7 +30,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class AlertServiceImpl implements AlertService {
     private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60; // 1시간
-    private final Map<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
+    private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
 
     private final AlertRepository alertRepository;
     private final AlertStatusRepository alertStatusRepository;
@@ -38,22 +39,36 @@ public class AlertServiceImpl implements AlertService {
     /*
     * 알림 SSE 구독
     * */
-    public SseEmitter subscribe(Long userId) {
+    public SseEmitter subscribe(String username, String lastEventId, HttpServletResponse response){
         log.info("[알림 SSE 구독] 서비스 진입");
-        
-        SseEmitter emitter = new SseEmitter(DEFAULT_TIMEOUT);
-        emitters.put(userId, emitter);
 
-        emitter.onCompletion(() -> emitters.remove(userId));
-        emitter.onTimeout(() -> emitters.remove(userId));
+        String emitterId = createTimeIncludeId(username);
+
+        SseEmitter emitter = new SseEmitter(DEFAULT_TIMEOUT);
+        emitters.put(emitterId, emitter);
+
+        response.setHeader("X-Accel-Buffering", "no");
+
+        emitter.onCompletion(() -> emitters.remove(emitterId));
+        emitter.onTimeout(() -> emitters.remove(emitterId));
+        emitter.onError((e) -> emitters.remove(emitterId));
 
         try {
-            emitter.send(SseEmitter.event().name("INIT").data("connected"));
+            String eventId = createTimeIncludeId(username);
+            emitter.send(SseEmitter.event().id(eventId).name("INIT").data("connected"));
         } catch (IOException e) {
+            emitters.remove(emitterId);
             emitter.completeWithError(e);
+            throw new RuntimeException("sse send failed" + e);
         }
 
+        log.info("sse 연결 완료");
+
         return emitter;
+    }
+
+    private String createTimeIncludeId(String username) {
+        return username + "_" + System.currentTimeMillis();
     }
 
     /*

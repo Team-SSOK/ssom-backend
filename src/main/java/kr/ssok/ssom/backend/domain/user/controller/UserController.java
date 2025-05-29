@@ -40,8 +40,6 @@ public class UserController {
 
     // 로그인 (지문인식)
 
-    // 비밀번호 변경
-
     // 토큰 갱신
     @PostMapping("/refresh")
     public ResponseEntity<BaseResponse<LoginResponseDto>> refreshToken(@Valid @RequestBody TokenRefreshRequestDto requestDto) {

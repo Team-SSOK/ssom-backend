@@ -14,7 +14,7 @@ public interface AlertService {
     List<AlertResponseDto> createAlert(AlertRequestDto request, AlertKind kind);
     //void sendAlertToUsers(AlertSendRequestDto request);
     //List<AlertResponseDto> getAlertsByKind(Long userId, AlertKind kind);
-    List<AlertResponseDto> getAllAlertsForUser(String username);
+    List<AlertResponseDto> getAllAlertsForUser(String employeeId);
     void modifyAlertStatus(AlertModifyRequestDto request);
 }
 

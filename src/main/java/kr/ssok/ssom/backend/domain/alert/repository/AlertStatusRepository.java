@@ -7,7 +7,5 @@ import java.util.List;
 
 public interface AlertStatusRepository extends JpaRepository<AlertStatus, Long> {
 
-    //List<AlertStatus> findByUserIdAndAlertKind(Long userId, AlertKind kind);
-
-    List<AlertStatus> findByUsername(String username);
+    List<AlertStatus> findByUser_Id(String employeeId);
 }

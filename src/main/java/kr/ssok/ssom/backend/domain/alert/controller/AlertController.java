@@ -8,13 +8,13 @@ import kr.ssok.ssom.backend.domain.alert.dto.AlertRequestDto;
 import kr.ssok.ssom.backend.domain.alert.dto.AlertResponseDto;
 import kr.ssok.ssom.backend.domain.alert.entity.constant.AlertKind;
 import kr.ssok.ssom.backend.domain.alert.service.AlertService;
+import kr.ssok.ssom.backend.domain.user.security.principal.UserPrincipal;
 import kr.ssok.ssom.backend.domain.user.service.UserService;
 import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.bind.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -32,19 +32,20 @@ public class AlertController {
 
     @Operation(summary = "알림 SSE 구독", description = "알림에 대해 SSE 구독을 진행합니다.")
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribe(@Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails,
+    public SseEmitter subscribe(@Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal userPrincipal,
                                 @RequestHeader(value = "Last-Event-ID", required = false, defaultValue = "") String lastEventId,
                                 HttpServletResponse response) {
 
-        return alertService.subscribe(userDetails.getUsername(), lastEventId, response);
+        return alertService.subscribe(userPrincipal.getEmployeeId(), lastEventId, response);
     }
 
     @Operation(summary = "전체 알림 목록 조회", description = "전체 알림 목록을 조회합니다.")
     @GetMapping
-    public BaseResponse<List<AlertResponseDto>> getAllAlerts(@RequestParam UserDetails userDetails) {
+    public BaseResponse<List<AlertResponseDto>> getAllAlerts(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         log.info("[전체 알림 목록 조회] 컨트롤러 진입");
 
-        return new BaseResponse<>(BaseResponseStatus.SUCCESS, alertService.getAllAlertsForUser(userDetails.getUsername()));
+        return new BaseResponse<>(BaseResponseStatus.SUCCESS,
+                alertService.getAllAlertsForUser(userPrincipal.getEmployeeId()));
     }
 
     @Operation(summary = "알림 상태 변경", description = "알림의 읽음 여부를 변경합니다.")

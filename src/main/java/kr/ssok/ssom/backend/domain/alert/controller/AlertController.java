@@ -41,10 +41,10 @@ public class AlertController {
 
     @Operation(summary = "전체 알림 목록 조회", description = "전체 알림 목록을 조회합니다.")
     @GetMapping
-    public BaseResponse<List<AlertResponseDto>> getAllAlerts(@RequestParam Long userId) {
+    public BaseResponse<List<AlertResponseDto>> getAllAlerts(@RequestParam UserDetails userDetails) {
         log.info("[전체 알림 목록 조회] 컨트롤러 진입");
 
-        return new BaseResponse<>(BaseResponseStatus.SUCCESS, alertService.getAllAlertsForUser(userId));
+        return new BaseResponse<>(BaseResponseStatus.SUCCESS, alertService.getAllAlertsForUser(userDetails.getUsername()));
     }
 
     @Operation(summary = "알림 상태 변경", description = "알림의 읽음 여부를 변경합니다.")

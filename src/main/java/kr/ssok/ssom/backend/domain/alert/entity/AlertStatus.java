@@ -1,7 +1,6 @@
 package kr.ssok.ssom.backend.domain.alert.entity;
 
 import jakarta.persistence.*;
-import kr.ssok.ssom.backend.domain.alert.entity.Alert;
 import kr.ssok.ssom.backend.domain.user.entity.User;
 import lombok.*;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -20,7 +19,7 @@ public class AlertStatus {
     private Long alertStatusId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "employee_id", nullable = false)
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)

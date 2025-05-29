@@ -10,6 +10,7 @@ import kr.ssok.ssom.backend.domain.alert.entity.AlertStatus;
 import kr.ssok.ssom.backend.domain.alert.entity.constant.AlertKind;
 import kr.ssok.ssom.backend.domain.alert.repository.AlertRepository;
 import kr.ssok.ssom.backend.domain.alert.repository.AlertStatusRepository;
+import kr.ssok.ssom.backend.domain.user.entity.Department;
 import kr.ssok.ssom.backend.domain.user.entity.User;
 import kr.ssok.ssom.backend.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -39,10 +40,10 @@ public class AlertServiceImpl implements AlertService {
     /*
     * 알림 SSE 구독
     * */
-    public SseEmitter subscribe(String username, String lastEventId, HttpServletResponse response){
+    public SseEmitter subscribe(String employeeId, String lastEventId, HttpServletResponse response){
         log.info("[알림 SSE 구독] 서비스 진입");
 
-        String emitterId = createTimeIncludeId(username);
+        String emitterId = createTimeIncludeId(employeeId);
 
         SseEmitter emitter = new SseEmitter(DEFAULT_TIMEOUT);
         emitters.put(emitterId, emitter);
@@ -54,7 +55,7 @@ public class AlertServiceImpl implements AlertService {
         emitter.onError((e) -> emitters.remove(emitterId));
 
         try {
-            String eventId = createTimeIncludeId(username);
+            String eventId = createTimeIncludeId(employeeId);
             emitter.send(SseEmitter.event().id(eventId).name("INIT").data("connected"));
         } catch (IOException e) {
             emitters.remove(emitterId);
@@ -67,8 +68,8 @@ public class AlertServiceImpl implements AlertService {
         return emitter;
     }
 
-    private String createTimeIncludeId(String username) {
-        return username + "_" + System.currentTimeMillis();
+    private String createTimeIncludeId(String employeeId) {
+        return employeeId + "_" + System.currentTimeMillis();
     }
 
     /*
@@ -105,9 +106,35 @@ public class AlertServiceImpl implements AlertService {
         // 2. 전체 사용자 가져오기
         List<User> users = userRepository.findAll(); // 가정: 전체 사용자에게 알림 전송
 
-        // 3. 각 사용자에게 AlertStatus 생성
+        // 3. 조건에 맞는 사용자 필터링
+        List<User> filteredUsers = users.stream()
+                .filter(user -> {
+                    Department dept = user.getDepartment();
+                    String index = request.get_index();
+
+                    // 운영팀, 대외팀은 무조건 받음
+                    if (dept == Department.OPERATION || dept == Department.EXTERNAL) {
+                        return true;
+                    }
+
+                    // 계정팀(Core Bank) : _index가 bank 일 때만
+                    if (dept == Department.CORE_BANK) {
+                        return "bank".equalsIgnoreCase(index);
+                    }
+
+                    // 채널팀(Channel) : _index가 bank가 아닐 때만
+                    if (dept == Department.CHANNEL) {
+                        return !"bank".equalsIgnoreCase(index);
+                    }
+
+                    // 기본적으로는 받지 않음
+                    return false;
+                })
+                .collect(Collectors.toList());
+
+        // 4. 각 필터링된 사용자에게 AlertStatus 생성
         List<AlertStatus> statusList = new ArrayList<>();
-        for (User user : users) {
+        for (User user : filteredUsers) {
             AlertStatus status = AlertStatus.builder()
                     .alert(alert)
                     .user(user)
@@ -117,12 +144,12 @@ public class AlertServiceImpl implements AlertService {
         }
         alertStatusRepository.saveAll(statusList);
 
-        // 4. DTO로 변환 후 반환
+        // 5. DTO로 변환 후 반환
         List<AlertResponseDto> dtoList = statusList.stream()
                 .map(AlertResponseDto::from)
                 .collect(Collectors.toList());
 
-        // 5. 알림 푸시
+        // 6. 알림 푸시
         for (AlertResponseDto dto : dtoList) {
             sendAlertToUser(dto.getUsername(), dto);
         }
@@ -162,10 +189,10 @@ public class AlertServiceImpl implements AlertService {
     * 전체 알림 목록 조회
     * */
     @Override
-    public List<AlertResponseDto> getAllAlertsForUser(String username) {
+    public List<AlertResponseDto> getAllAlertsForUser(String employeeId) {
         log.info("[전체 알림 목록 조회] 서비스 진입");
 
-        return alertStatusRepository.findByUsername(username)
+        return alertStatusRepository.findByUser_Id(employeeId)
                 .stream()
                 .map(AlertResponseDto::from)
                 .collect(Collectors.toList());

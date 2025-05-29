@@ -10,10 +10,10 @@ public interface LlmServiceClient {
 
     // 로그 요약
     @PostMapping("/api/logs/summary")
-    LlmApiResponseDto<LogSummaryResponseDto> summarizeLog(@RequestBody LogSummaryRequestDto requestDto);
+    LlmApiResponseDto<LogSummaryResponseDto> summarizeLog(@RequestBody LlmApiRequestDto requestDto);
 
     // 이슈 초안 작성
     @PostMapping("/api/logs/issues")
-    LlmApiResponseDto<LlmIssueResponseDto> writeIssue(@RequestBody LlmIssueRequestDto requestDto);
+    LlmApiResponseDto<LlmIssueResponseDto> writeIssue(@RequestBody LlmApiRequestDto requestDto);
 
 }

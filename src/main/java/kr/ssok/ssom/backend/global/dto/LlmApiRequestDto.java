@@ -5,11 +5,12 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LogSummaryResponseDto {
-    private LogRequestDto log;
-    private LogSummaryMessageDto message;
+public class LlmApiRequestDto {
+    private List<LogRequestDto> logs;
 }

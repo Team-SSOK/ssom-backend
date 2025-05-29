@@ -10,11 +10,11 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.List;
 
 public interface AlertService {
-    SseEmitter subscribe(String userName, String lastEventId, HttpServletResponse response);
+    SseEmitter subscribe(String username, String lastEventId, HttpServletResponse response);
     List<AlertResponseDto> createAlert(AlertRequestDto request, AlertKind kind);
     //void sendAlertToUsers(AlertSendRequestDto request);
     //List<AlertResponseDto> getAlertsByKind(Long userId, AlertKind kind);
-    List<AlertResponseDto> getAllAlertsForUser(Long userId);
+    List<AlertResponseDto> getAllAlertsForUser(String username);
     void modifyAlertStatus(AlertModifyRequestDto request);
 }
 

@@ -162,10 +162,10 @@ public class AlertServiceImpl implements AlertService {
     * 전체 알림 목록 조회
     * */
     @Override
-    public List<AlertResponseDto> getAllAlertsForUser(Long userId) {
+    public List<AlertResponseDto> getAllAlertsForUser(String username) {
         log.info("[전체 알림 목록 조회] 서비스 진입");
 
-        return alertStatusRepository.findByUserId(userId)
+        return alertStatusRepository.findByUsername(username)
                 .stream()
                 .map(AlertResponseDto::from)
                 .collect(Collectors.toList());

@@ -13,7 +13,6 @@ import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.bind.annotation.AuthenticationPrincipal;
@@ -37,7 +36,7 @@ public class AlertController {
                                 @RequestHeader(value = "Last-Event-ID", required = false, defaultValue = "") String lastEventId,
                                 HttpServletResponse response) {
 
-        return new BaseResponse<>(alertService.subscribe(userDetails.getUsername(), lastEventId, response), HttpStatus.OK);
+        return alertService.subscribe(userDetails.getUsername(), lastEventId, response);
     }
 
     @Operation(summary = "전체 알림 목록 조회", description = "전체 알림 목록을 조회합니다.")

@@ -1,4 +1,4 @@
 package kr.ssok.ssom.backend.domain.logging.dto;
 
-public class LoggingRequestDto {
+public class LogInfoResponseDto {
 }

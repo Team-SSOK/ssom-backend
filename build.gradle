@@ -23,6 +23,13 @@ repositories {
     mavenCentral()
 }
 
+dependencyManagement {
+
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2024.0.0"
+    }
+}
+
 dependencies {
     // validation
     implementation 'org.springframework.boot:spring-boot-starter-validation'
@@ -72,6 +79,9 @@ dependencies {
 
     // Firebase Cloud Message
     implementation 'com.google.firebase:firebase-admin:9.4.3'
+
+    // OpenFeign
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
 
 }
 

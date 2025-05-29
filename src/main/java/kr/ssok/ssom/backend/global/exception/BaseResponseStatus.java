@@ -12,6 +12,9 @@ public enum BaseResponseStatus {
     LOGOUT_SUCCESS(true, 2002, "로그아웃에 성공하였습니다."),
     TOKEN_REFRESH_SUCCESS(true, 2003, "토큰 갱신에 성공하였습니다."),
 
+    BAD_REQUEST(false, 4000, "잘못된 요청입니다."),
+    INVALID_PARAMETER(false, 4001, "유효하지 않은 파라미터입니다."),
+
     // 회원 관련 오류
     INVALID_SIGNUP_REQUEST_VALUE(false, 4002, "유효하지 않은 회원가입 양식입니다."),
     INVALID_PASSWORD(false, 4000, "유효하지 않은 비밀번호입니다."),

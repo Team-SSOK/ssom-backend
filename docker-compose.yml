@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ssom-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: ssom_db
+      MYSQL_USER: ssom_user
+      MYSQL_PASSWORD: ssom_password
+      TZ: Asia/Seoul
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-time-zone='+09:00'
+      --lower-case-table-names=1
+      --max-connections=200
+      --innodb-buffer-pool-size=256M
+    networks:
+      - ssom-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      timeout: 20s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: ssom-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - ssom-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 3s
+      retries: 5
+
+#  # 개발용 Redis 관리 도구 (선택사항)
+#  redis-commander:
+#    image: rediscommander/redis-commander:latest
+#    container_name: ssom-redis-commander
+#    restart: always
+#    environment:
+#      - REDIS_HOSTS=local:redis:6379
+#    ports:
+#      - "8081:8081"
+#    networks:
+#      - ssom-network
+#    depends_on:
+#      - redis
+#    profiles:
+#      - tools
+#
+#  # 개발용 MySQL 관리 도구 (선택사항)
+#  phpmyadmin:
+#    image: phpmyadmin/phpmyadmin:latest
+#    container_name: ssom-phpmyadmin
+#    restart: always
+#    environment:
+#      PMA_HOST: mysql
+#      PMA_USER: root
+#      PMA_PASSWORD: rootpassword
+#      MYSQL_ROOT_PASSWORD: rootpassword
+#    ports:
+#      - "8080:80"
+#    networks:
+#      - ssom-network
+#    depends_on:
+#      - mysql
+#    profiles:
+#      - tools
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  ssom-network:
+    driver: bridge

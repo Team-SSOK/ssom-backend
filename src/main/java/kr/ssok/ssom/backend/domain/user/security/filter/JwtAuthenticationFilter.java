@@ -5,47 +5,57 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import kr.ssok.ssom.backend.domain.user.entity.User;
-import kr.ssok.ssom.backend.domain.user.security.config.SecurityConfig;
 import kr.ssok.ssom.backend.domain.user.security.jwt.JwtTokenProvider;
 import kr.ssok.ssom.backend.domain.user.security.principal.UserPrincipal;
 import kr.ssok.ssom.backend.domain.user.service.UserService;
 import kr.ssok.ssom.backend.global.exception.BaseException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 
 @Slf4j
-@Component
-@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisTemplate<String, String> redisTemplate;
-    private final SecurityConfig securityConfig;
     private final UserService userService;
+    private final List<String> whitelistPaths;
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
     private static final String BLACKLIST_TOKEN_PREFIX = "blacklist:token:";
+
+    /**
+     * 생성자 - SecurityConfig에서 의존성 주입
+     */
+    public JwtAuthenticationFilter(
+            JwtTokenProvider jwtTokenProvider,
+            RedisTemplate<String, String> redisTemplate,
+            UserService userService,
+            List<String> whitelistPaths) {
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.redisTemplate = redisTemplate;
+        this.userService = userService;
+        this.whitelistPaths = whitelistPaths;
+    }
 
     /**
      * JWT 토큰 검증 및 인증 정보 설정을 위한 필터
      */
     @Override
     protected void doFilterInternal(
-            HttpServletRequest request, 
-            HttpServletResponse response, 
+            HttpServletRequest request,
+            HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
 
         String requestPath = request.getRequestURI();
-        
+
         // 인증이 필요없는 요청은 토큰 검증 없이 통과
         if (isWhiteListPath(requestPath)) {
             filterChain.doFilter(request, response);
@@ -118,7 +128,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * 인증이 필요 없는 경로인지 확인
      */
     private boolean isWhiteListPath(String requestPath) {
-        return securityConfig.getWhitelist().stream()
+        return whitelistPaths.stream()
                 .anyMatch(pattern -> pathMatcher.match(pattern, requestPath));
     }
 
@@ -128,12 +138,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private void sendErrorResponse(HttpServletResponse response, String message, int status) throws IOException {
         response.setStatus(status);
         response.setContentType("application/json;charset=UTF-8");
-        
+
         String errorResponse = String.format(
-                "{\"isSuccess\": false, \"code\": %d, \"message\": \"%s\"}", 
+                "{\"isSuccess\": false, \"code\": %d, \"message\": \"%s\"}",
                 status, message
         );
-        
+
         response.getWriter().write(errorResponse);
         response.getWriter().flush();
     }

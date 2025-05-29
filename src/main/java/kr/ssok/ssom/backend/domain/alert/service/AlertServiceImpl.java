@@ -74,17 +74,17 @@ public class AlertServiceImpl implements AlertService {
     /*
      * 알림 SSE 전송
      * */
-    public void sendAlertToUser(Long userId, AlertResponseDto alertResponseDto) {
+    public void sendAlertToUser(String username, AlertResponseDto alertResponseDto) {
         log.info("[알림 SSE 전송] 서비스 진입");
         
-        SseEmitter emitter = emitters.get(userId);
+        SseEmitter emitter = emitters.get(username);
         if (emitter != null) {
             try {
                 emitter.send(SseEmitter.event()
                         .name("alert")
                         .data(alertResponseDto));
             } catch (IOException e) {
-                emitters.remove(userId);
+                emitters.remove(username);
             }
         }
     }
@@ -124,7 +124,7 @@ public class AlertServiceImpl implements AlertService {
 
         // 5. 알림 푸시
         for (AlertResponseDto dto : dtoList) {
-            sendAlertToUser(dto.getUserId(), dto);
+            sendAlertToUser(dto.getUsername(), dto);
         }
 
         return dtoList;

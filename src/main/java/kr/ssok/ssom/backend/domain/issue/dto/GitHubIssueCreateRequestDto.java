@@ -38,6 +38,22 @@ public class GitHubIssueCreateRequestDto {
     @Schema(description = "담당자 사용자명 목록 (선택사항)", example = "[\"홍길동\", \"김철수\"]")
     private List<String> assigneeUsernames;
     
-    @Schema(description = "라벨 목록 (선택사항)", example = "[\"bug\", \"hotfix\"]")
-    private List<String> labels;
+    // LLM 응답에서 온 추가 정보들 (선택사항)
+    @Schema(description = "원인 분석 (LLM 생성)", example = "Authorization 헤더가 없거나...")
+    private String cause;
+    
+    @Schema(description = "해결 방안 (LLM 생성)", example = "클라이언트 요청 시 Authorization 헤더가...")
+    private String solution;
+    
+    @Schema(description = "재현 단계 (LLM 생성)")
+    private List<String> reproductionSteps;
+    
+    @Schema(description = "참조 파일들 (LLM 생성)", example = "JwtAuthenticationFilter.java, JwtAuthenticationEntryPoint.java")
+    private String references;
+    
+    @Schema(description = "오류 위치 파일명 (LLM 생성)", example = "JwtAuthenticationFilter.java")
+    private String locationFile;
+    
+    @Schema(description = "오류 위치 함수명 (LLM 생성)", example = "filter()")
+    private String locationFunction;
 }

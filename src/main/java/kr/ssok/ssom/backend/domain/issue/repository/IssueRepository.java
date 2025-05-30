@@ -74,4 +74,10 @@ public interface IssueRepository extends JpaRepository<Issue, Long> {
      */
     @Query("SELECT i FROM Issue i JOIN i.logIds l WHERE l = :logId ORDER BY i.createdAt DESC")
     List<Issue> findByLogId(@Param("logId") String logId);
+    
+    /**
+     * 전체 Issue 목록 조회 (최신순)
+     * @return 전체 Issue 목록
+     */
+    List<Issue> findAllByOrderByCreatedAtDesc();
 }

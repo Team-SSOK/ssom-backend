@@ -27,11 +27,18 @@ public interface IssueService {
     IssueResponseDto createGitHubIssue(GitHubIssueCreateRequestDto request, String employeeId);
     
     /**
-     * 사용자가 생성한 Issue 목록 조회
-     * @param employeeId 사용자 사원번호
-     * @return Issue 목록
+     * 내가 생성한 Issue 목록 조회
+     * @param employeeId 요청자 사원번호
+     * @return 내가 생성한 Issue 목록
      */
     List<IssueResponseDto> getMyIssues(String employeeId);
+    
+    /**
+     * 전체 Issue 목록 조회 (팀 공유)
+     * @param employeeId 요청자 사원번호 (로깅용)
+     * @return 전체 Issue 목록
+     */
+    List<IssueResponseDto> getAllIssues(String employeeId);
     
     /**
      * Issue 상세 정보 조회

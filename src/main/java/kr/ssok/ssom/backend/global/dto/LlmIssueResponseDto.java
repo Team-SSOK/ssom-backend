@@ -1,5 +1,6 @@
 package kr.ssok.ssom.backend.global.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -47,6 +48,7 @@ public class LlmIssueResponseDto {
         private String cause;
         
         @Schema(description = "재현 단계")
+        @JsonProperty("reproduction_steps")
         private List<String> reproductionSteps;
         
         @Schema(description = "로그 메시지", example = "Authentication error: Authorization header is missing or invalid")

@@ -1,5 +1,6 @@
 package kr.ssok.ssom.backend.domain.logging.service.Impl;
 
+import jakarta.servlet.http.HttpServletResponse;
 import kr.ssok.ssom.backend.domain.logging.dto.*;
 import kr.ssok.ssom.backend.domain.logging.entity.LogSummary;
 import kr.ssok.ssom.backend.domain.logging.repository.LogSummaryRepository;
@@ -9,9 +10,13 @@ import kr.ssok.ssom.backend.global.dto.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
@@ -21,18 +26,81 @@ public class LoggingServiceImpl implements LoggingService {
     private final LogSummaryRepository logSummaryRepository;
     private final LlmServiceClient llmServiceClient;
 
+    private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
+    private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60; // 1시간
+    private static final String SSE_EVENT_TYPE = "logging";
+
+    /**
+     * 서비스 목록 조회
+     */
     @Override
     public ServicesResponseDto getServices() {
         // OpenSearch에 요청 보내기?
         return null;
     }
 
+    /**
+     * 로그 목록 조회
+     */
     @Override
     public LogsResponseDto getLogs() {
         // 초기: 모든 서비스, 모든 레벨
 
         // 필터링 시: 조건에 맞는 서비스와 레벨만 조회
         return null;
+    }
+
+    /**
+     * 로그 SSE 구독
+     */
+    public SseEmitter subscribe(String employeeId, String lastEventId, HttpServletResponse response){
+        log.info("[로그 SSE 구독] 서비스 진입");
+
+        String emitterId = createTimeIncludeId(employeeId);
+
+        SseEmitter emitter = new SseEmitter(DEFAULT_TIMEOUT);
+        emitters.put(emitterId, emitter);
+
+        response.setHeader("X-Accel-Buffering", "no");
+
+        emitter.onCompletion(() -> emitters.remove(emitterId));
+        emitter.onTimeout(() -> emitters.remove(emitterId));
+        emitter.onError((e) -> emitters.remove(emitterId));
+
+        try {
+            String eventId = createTimeIncludeId(employeeId);
+            emitter.send(SseEmitter.event().id(eventId).name("INIT").data("connected"));
+        } catch (IOException e) {
+            emitters.remove(emitterId);
+            emitter.completeWithError(e);
+            throw new RuntimeException("sse send failed" + e);
+        }
+
+        log.info("sse 연결 완료");
+
+        return emitter;
+    }
+
+    private String createTimeIncludeId(String employeeId) {
+        return employeeId + "_" + System.currentTimeMillis() + "_" + SSE_EVENT_TYPE;
+    }
+
+    /**
+     * 로그 SSE 전송 (실시간으로 뜨는 로그를 하나씩)
+     */
+    public void sendLogToUser(String emitterId, LogDto logDto) {
+        log.info("[로그 SSE 전송] 서비스 진입");
+
+        SseEmitter emitter = emitters.get(emitterId);
+        if (emitter != null) {
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("logging")
+                        .data(logDto));
+            } catch (IOException e) {
+                emitters.remove(emitterId);
+            }
+        }
     }
 
     /**
@@ -49,15 +117,16 @@ public class LoggingServiceImpl implements LoggingService {
             return null;
         }
 
+        // 있을 시 DB에서 조회된 기존 요약 내용 반환
         LogSummary summaryEntity = summaryOpt.get();
 
-        LogLocationDto locationdto = LogLocationDto.builder()
+        LogLocationDto locationDto = LogLocationDto.builder()
                 .file(summaryEntity.getFileLocation())
                 .function(summaryEntity.getFunctionLocation())
                 .build();
         LogSummaryMessageDto summaryDto = LogSummaryMessageDto.builder()
                 .title(summaryEntity.getTitle())
-                .location(locationdto)
+                .location(locationDto)
                 .solution(summaryEntity.getSolution())
                 .build();
 

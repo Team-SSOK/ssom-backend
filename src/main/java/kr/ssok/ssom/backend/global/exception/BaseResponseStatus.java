@@ -43,7 +43,17 @@ public enum BaseResponseStatus {
     BIOMETRIC_MAX_ATTEMPTS_EXCEEDED(false, 4019, "생체인증 시도횟수가 초과되었습니다.", HttpStatus.LOCKED),
 
     USER_NOT_FOUND(false, 5011, "사용자를 찾을 수 없습니다."),
-    USER_ALREADY_EXISTS(false, 5010, "이미 존재하는 사용자입니다.");
+    USER_ALREADY_EXISTS(false, 5010, "이미 존재하는 사용자입니다."),
+    NOT_FOUND_USER(false, 5012, "해당 사용자를 찾을 수 없습니다."),
+
+    // Issue 관련 오류
+    NOT_FOUND_ISSUE(false, 6001, "Issue를 찾을 수 없습니다."),
+    LLM_API_ERROR(false, 6003, "LLM API 호출 중 오류가 발생했습니다."),
+    NOT_FOUND_LOG(false, 6004, "로그를 찾을 수 없습니다."),
+    GITHUB_API_ERROR(false, 6005, "GitHub API 호출 중 오류가 발생했습니다."),
+
+    // 서버 오류
+    INTERNAL_SERVER_ERROR(false, 5000, "서버 내부 오류가 발생했습니다.");
 
     private final boolean isSuccess;
     private final int code;

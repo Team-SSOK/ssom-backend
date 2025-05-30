@@ -1,12 +1,17 @@
 package kr.ssok.ssom.backend.domain.logging.service.Impl;
 
 import jakarta.servlet.http.HttpServletResponse;
+import kr.ssok.ssom.backend.domain.issue.dto.LogDataDto;
 import kr.ssok.ssom.backend.domain.logging.dto.*;
 import kr.ssok.ssom.backend.domain.logging.entity.LogSummary;
+import kr.ssok.ssom.backend.domain.logging.entity.Logging;
 import kr.ssok.ssom.backend.domain.logging.repository.LogSummaryRepository;
+import kr.ssok.ssom.backend.domain.logging.repository.LoggingRepository;
 import kr.ssok.ssom.backend.domain.logging.service.LoggingService;
 import kr.ssok.ssom.backend.global.client.LlmServiceClient;
 import kr.ssok.ssom.backend.global.dto.*;
+import kr.ssok.ssom.backend.global.exception.BaseException;
+import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -24,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class LoggingServiceImpl implements LoggingService {
 
     private final LogSummaryRepository logSummaryRepository;
+    private final LoggingRepository loggingRepository;
     private final LlmServiceClient llmServiceClient;
 
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
@@ -167,5 +174,66 @@ public class LoggingServiceImpl implements LoggingService {
 
         // 분석 내용 반환
         return summaryDto;
+    }
+
+    /**
+     * 로그 ID 목록으로 로그 데이터 조회 (Issue 생성용)
+     */
+    @Override
+    public List<LogDataDto> getLogsByIds(List<String> logIds) {
+        log.info("로그 ID 목록으로 로그 조회: {}", logIds);
+
+        // DB에서 로그 조회
+        List<Logging> logs = loggingRepository.findByLogIds(logIds);
+
+        // 조회되지 않은 로그 ID 확인
+        List<String> foundLogIds = logs.stream()
+                .map(Logging::getLogId)
+                .collect(Collectors.toList());
+
+        List<String> notFoundLogIds = logIds.stream()
+                .filter(logId -> !foundLogIds.contains(logId))
+                .collect(Collectors.toList());
+
+        if (!notFoundLogIds.isEmpty()) {
+            log.warn("조회되지 않은 로그 ID들: {}", notFoundLogIds);
+            throw new BaseException(BaseResponseStatus.NOT_FOUND_LOG);
+        }
+
+        // Logging Entity를 LogDataDto로 변환
+        return logs.stream()
+                .map(this::convertToLogDataDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 로그 데이터를 LLM API 요청 형식으로 변환
+     */
+    @Override
+    public List<LogRequestDto> convertToLlmRequestFormat(List<LogDataDto> logDataList) {
+        return logDataList.stream()
+                .map(logData -> LogRequestDto.builder()
+                        .level(logData.getLevel())
+                        .logger(logData.getLogger())
+                        .thread(logData.getThread())
+                        .message(logData.getMessage())
+                        .app(logData.getApp())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Logging Entity를 LogDataDto로 변환
+     */
+    private LogDataDto convertToLogDataDto(Logging logging) {
+        return LogDataDto.builder()
+                .logId(logging.getLogId())
+                .level(logging.getLevel())
+                .logger(logging.getLogger())
+                .thread(logging.getThread())
+                .message(logging.getMessage())
+                .app(logging.getApp())
+                .timestamp(logging.getTimestamp())
+                .build();
     }
 }

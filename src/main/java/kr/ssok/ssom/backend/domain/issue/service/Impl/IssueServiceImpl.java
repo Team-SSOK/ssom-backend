@@ -154,13 +154,25 @@ public class IssueServiceImpl implements IssueService {
     }
     
     /**
-     * 사용자가 생성한 Issue 목록 조회
+     * 내가 담당자로 지정된 Issue 목록 조회
      */
     @Override
     public List<IssueResponseDto> getMyIssues(String employeeId) {
-        log.info("사용자 Issue 목록 조회 - 사원번호: {}", employeeId);
+        log.info("내 담당 Issue 목록 조회 - 사원번호: {}", employeeId);
         
-        List<Issue> issues = issueRepository.findByCreatedByEmployeeIdOrderByCreatedAtDesc(employeeId);
+        // 1. 사용자 정보 조회하여 GitHub ID 확인
+        User user = userRepository.findById(employeeId)
+                .orElseThrow(() -> new BaseException(BaseResponseStatus.NOT_FOUND_USER));
+        
+        // 2. GitHub ID가 없는 경우 빈 목록 반환
+        if (user.getGithubId() == null || user.getGithubId().trim().isEmpty()) {
+            log.warn("GitHub ID가 없는 사용자의 담당 Issue 조회 - 사원번호: {}", employeeId);
+            return List.of();
+        }
+        
+        // 3. GitHub ID로 담당자로 지정된 Issue 목록 조회
+        List<Issue> issues = issueRepository.findByAssigneeGithubId(user.getGithubId());
+        log.info("담당 Issue 개수: {} - GitHub ID: {}", issues.size(), user.getGithubId());
         
         return issues.stream()
                 .map(IssueResponseDto::from)

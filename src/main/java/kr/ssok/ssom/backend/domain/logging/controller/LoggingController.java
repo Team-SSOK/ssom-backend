@@ -41,22 +41,22 @@ public class LoggingController {
 
     }
 
-    // 로그 상세 조회
+    // 로그 상세 조회 - 이전에 생성한 LLM 요약 반환
     @GetMapping("/{logId}")
-    public ResponseEntity<BaseResponse<LogInfoResponseDto>> getLogInfo(@PathVariable String logId) {
+    public ResponseEntity<BaseResponse<LogSummaryMessageDto>> getLogInfo(@PathVariable String logId) {
 
-        log.info("로그 상세 조회 요청 - 로그 요약 존재 여부 확인(logId: {})", logId);
-        LogInfoResponseDto response = loggingService.getLogInfo(logId);
+        log.info("로그 상세 조회 요청 - 이전에 생성한 LLM 요약 반환(logId: {})", logId);
+        LogSummaryMessageDto response = loggingService.getLogInfo(logId);
 
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, response));
 
     }
 
-    // 로그 상세 조회 중 로그 LLM 요약
+    // 로그 상세 조회 - 새롭게 생성한 로그 LLM 요약 반환
     @PostMapping("/{logId}")
-    public ResponseEntity<BaseResponse<LogSummaryMessageDto>> summarizeLog(@PathVariable String logId, @RequestBody LogRequestDto request) {
+    public ResponseEntity<BaseResponse<LogSummaryMessageDto>> summarizeLog(@PathVariable String logId, @RequestBody LogDto request) {
 
-        log.info("로그 요약 요청(logId: {})", logId);
+        log.info("LLM 요약 요청(logId: {})", logId);
         LogSummaryMessageDto response = loggingService.summarizeLog(request);
 
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, response));

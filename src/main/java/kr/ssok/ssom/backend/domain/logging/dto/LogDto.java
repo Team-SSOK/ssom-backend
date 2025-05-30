@@ -5,12 +5,17 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LogsResponseDto {
-    private List<LogDto> logs;
+public class LogDto {
+    private String logId;
+    private String timestamp;
+
+    private String level;
+    private String logger;
+    private String thread;
+    private String message;
+    private String app;
 }

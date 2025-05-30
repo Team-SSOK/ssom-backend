@@ -12,11 +12,11 @@ public interface AlertService {
     List<AlertResponseDto> getAllAlertsForUser(String employeeId);
     void modifyAlertStatus(AlertModifyRequestDto request);
 
-    List<AlertResponseDto> createAlert(AlertRequestDto request, AlertKind kind);
-    List<AlertResponseDto> createGrafanaAlert(AlertGrafanaRequestDto alertGrafanaRequestDto);
-    List<AlertResponseDto> createOpensearchAlert(AlertOpensearchRequestDto alertOpensearchRequest);
-    List<AlertResponseDto> createIssueAlert(AlertIssueRequestDto alertIssueRequest);
-    //List<AlertResponseDto> createDevopsAlert(AlertSendRequestDto alertSendRequest);
+    void createAlert(AlertRequestDto request, AlertKind kind);
+    void createGrafanaAlert(AlertGrafanaRequestDto requestDto);
+    void createOpensearchAlert(AlertOpensearchRequestDto requestDto);
+    void createIssueAlert(AlertIssueRequestDto requestDto);
+    void createDevopsAlert(AlertSendRequestDto requestDto);
 
     //void sendAlertToUsers(AlertSendRequestDto request);
     //List<AlertResponseDto> getAlertsByKind(Long userId, AlertKind kind);

@@ -1,5 +1,7 @@
 package kr.ssok.ssom.backend.domain.alert.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import kr.ssok.ssom.backend.domain.alert.dto.*;
@@ -31,6 +33,8 @@ public class AlertServiceImpl implements AlertService {
     private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60; // 1시간
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
 
+    private final ObjectMapper objectMapper;
+
     private final AlertRepository alertRepository;
     private final AlertStatusRepository alertStatusRepository;
     private final UserRepository userRepository;
@@ -39,10 +43,9 @@ public class AlertServiceImpl implements AlertService {
     * 알림 SSE 구독
     * */
     public SseEmitter subscribe(String employeeId, String lastEventId, HttpServletResponse response){
-        log.info("[SSE 구독] 서비스 진입");
+        log.info("[알림 SSE 구독] 서비스 진입");
 
-        String emitterId = createTimeIncludeId(employeeId);
-
+        String emitterId = employeeId;
         SseEmitter emitter = new SseEmitter(DEFAULT_TIMEOUT);
         emitters.put(emitterId, emitter);
 
@@ -53,12 +56,14 @@ public class AlertServiceImpl implements AlertService {
         emitter.onError((e) -> emitters.remove(emitterId));
 
         try {
-            String eventId = createTimeIncludeId(employeeId);
-            emitter.send(SseEmitter.event().id(eventId).name("INIT").data("connected"));
+            String eventId = createTimeIncludeId(emitterId);
+            emitter.send(SseEmitter.event().id(eventId).name("SSE_ALERT_INIT").data("connected"));
         } catch (IOException e) {
             emitters.remove(emitterId);
             emitter.completeWithError(e);
-            throw new RuntimeException("sse send failed" + e);
+
+            log.error("SSE_ALERT_INIT failed");
+            throw new RuntimeException("SSE_ALERT_INIT failed" + e);
         }
 
         log.info("sse 연결 완료");
@@ -73,19 +78,22 @@ public class AlertServiceImpl implements AlertService {
     /*
      * 알림 SSE 전송
      * */
-    public void sendAlertToUser(String username, AlertResponseDto alertResponseDto) {
+    public void sendSseAlertToUser(String emitterId, AlertResponseDto alertResponseDto) {
         log.info("[알림 SSE 전송] 서비스 진입");
         
-        SseEmitter emitter = emitters.get(username);
+        SseEmitter emitter = emitters.get(emitterId);
         if (emitter != null) {
             try {
                 emitter.send(SseEmitter.event()
-                        .name("alert")
+                        .name("SSE_ALERT")
                         .data(alertResponseDto));
             } catch (IOException e) {
-                emitters.remove(username);
+                emitters.remove(emitterId);
+                log.error("SSE_ALERT failed");
+                throw new RuntimeException("SSE_ALERT failed" + e);
             }
         }
+        log.info("[알림 SSE 전송] 처리 완료.");
     }
 
     /*
@@ -122,37 +130,39 @@ public class AlertServiceImpl implements AlertService {
     * 알림 저장 및 전송
     * */
     @Override
-    public List<AlertResponseDto> createAlert(AlertRequestDto request, AlertKind kind) {
+    public void createAlert(AlertRequestDto request, AlertKind kind) {
+        log.info("[알림 생성] 알림 저장 및 전송 진행 중 ...");
+
         // 1. Alert 저장
         Alert alert = Alert.builder()
-                .title(request.getTitle())
-                .message(request.getMessage())
+                .title("[" + request.getLevel() + "] " + request.getApp())  // [ERROR] ssok-bank
+                .message(request.getMessage())                              // Authentication error: Authorization header is missing or invalid
                 .kind(kind)
                 .build();
         alertRepository.save(alert);
 
         // 2. 전체 사용자 가져오기
-        List<User> users = userRepository.findAll(); // 가정: 전체 사용자에게 알림 전송
+        List<User> users = userRepository.findAll();
 
         // 3. 조건에 맞는 사용자 필터링
         List<User> filteredUsers = users.stream()
                 .filter(user -> {
                     Department dept = user.getDepartment();
-                    String index = request.get_index();
+                    String app = request.getApp();
 
                     // 운영팀, 대외팀은 무조건 받음
                     if (dept == Department.OPERATION || dept == Department.EXTERNAL) {
                         return true;
                     }
 
-                    // 계정팀(Core Bank) : _index가 bank 일 때만
+                    // 계정팀(Core Bank) : 출처 app이 ssok-bank 일 때만
                     if (dept == Department.CORE_BANK) {
-                        return "bank".equalsIgnoreCase(index);
+                        return "ssok-bank".equalsIgnoreCase(app);
                     }
 
-                    // 채널팀(Channel) : _index가 bank가 아닐 때만
+                    // 채널팀(Channel) : 출처 app이 ssok-bank 이 아닌 경우
                     if (dept == Department.CHANNEL) {
-                        return !"bank".equalsIgnoreCase(index);
+                        return !"ssok-bank".equalsIgnoreCase(app);
                     }
 
                     // 기본적으로는 받지 않음
@@ -171,18 +181,18 @@ public class AlertServiceImpl implements AlertService {
             statusList.add(status);
         }
         alertStatusRepository.saveAll(statusList);
+        log.info("[알림 생성] 알림 저장 완료");
 
-        // 5. DTO로 변환 후 반환
+        // 5. 알림 전송용 DTO로 변환 후 반환
         List<AlertResponseDto> dtoList = statusList.stream()
                 .map(AlertResponseDto::from)
                 .collect(Collectors.toList());
 
         // 6. 알림 푸시
         for (AlertResponseDto dto : dtoList) {
-            sendAlertToUser(dto.getUsername(), dto);
+            sendSseAlertToUser(dto.getEmployeeId(), dto);
         }
 
-        return dtoList;
     }
 
     @Override
@@ -191,8 +201,44 @@ public class AlertServiceImpl implements AlertService {
     }
 
     @Override
-    public List<AlertResponseDto> createOpensearchAlert(AlertOpensearchRequestDto alertOpensearchRequest) {
-        return List.of();
+    public void createOpensearchAlert(AlertOpensearchRequestDto requestDto) {
+        log.info("[오픈서치 대시보드 알림] 서비스 진입");
+        
+        String rawJson = requestDto.getRequest();
+        List<AlertRequestDto> alerts = parseRawStringToDtoList(rawJson);
+        
+        for (AlertRequestDto alert : alerts) {
+            AlertRequestDto alertRequest = AlertRequestDto.builder()
+                    .id(alert.getId())
+                    .level(alert.getLevel())
+                    .app(alert.getApp())
+                    .timestamp(alert.getTimestamp())
+                    .message(alert.getMessage())
+                    .build();
+
+            createAlert(alertRequest, AlertKind.OPENSEARCH);
+        }
+    }
+
+    private List<AlertRequestDto> parseRawStringToDtoList(String raw) {
+        log.info("[오픈서치 대시보드 알림] JSON Parsing 진행 중 ...");
+
+        try {
+            // 전처리: {{ → {, }}, → }, 마지막 쉼표 제거 후 배열 감싸기
+            String fixed = raw
+                    .replaceAll("\\{\\s*\\{", "{")
+                    .replaceAll("}\\s*},?", "},")
+                    .trim();
+
+            if (fixed.endsWith(",")) {
+                fixed = fixed.substring(0, fixed.length() - 1);
+            }
+            fixed = "[" + fixed + "]";
+
+            return objectMapper.readValue(fixed, new TypeReference<>() {});
+        } catch (Exception e) {
+            throw new RuntimeException("JSON 파싱 실패", e);
+        }
     }
 
     @Override

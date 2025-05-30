@@ -10,7 +10,9 @@ import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -31,6 +33,7 @@ public class AlertController {
     public SseEmitter subscribe(@Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal userPrincipal,
                                 @RequestHeader(value = "Last-Event-ID", required = false, defaultValue = "") String lastEventId,
                                 HttpServletResponse response) {
+        log.info("[알림 SSE 구독] 컨트롤러 진입");
 
         return alertService.subscribe(userPrincipal.getEmployeeId(), lastEventId, response);
     }
@@ -65,11 +68,13 @@ public class AlertController {
 
     @Operation(summary = "오픈서치 대시보드 알림", description = "오픈서치 대시보드 알림 데이터를 받아 앱으로 전송합니다.")
     @PostMapping("/opensearch")
-    public BaseResponse<List<AlertResponseDto>> sendOpensearchAlert(@RequestBody AlertOpensearchRequestDto alertOpensearchRequest) {
+    public ResponseEntity<BaseResponse<Void>> sendOpensearchAlert(@RequestBody AlertOpensearchRequestDto requestDto) {
         log.info("[오픈서치 대시보드 알림] 컨트롤러 진입");
 
-        List<AlertResponseDto> responses = alertService.createOpensearchAlert(alertOpensearchRequest);
-        return new BaseResponse<>(BaseResponseStatus.SUCCESS, responses);
+        alertService.createOpensearchAlert(requestDto);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
 
     @Operation(summary = "이슈 생성 알림", description = "이슈 생성 시 앱으로 알림을 전송합니다.")

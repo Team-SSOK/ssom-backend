@@ -54,4 +54,12 @@ public interface IssueService {
      * @param newStatus 새로운 상태
      */
     void syncIssueStatus(Long githubIssueNumber, String newStatus);
+    
+    /**
+     * GitHub Webhook 이벤트 처리
+     * @param webhookPayload Webhook 페이로드
+     * @param eventType 이벤트 타입 (issues, etc.)
+     * @param signature 서명 (검증용)
+     */
+    void handleGitHubWebhook(String webhookPayload, String eventType, String signature);
 }

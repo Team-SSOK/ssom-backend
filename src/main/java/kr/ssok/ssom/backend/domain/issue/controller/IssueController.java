@@ -12,6 +12,7 @@ import kr.ssok.ssom.backend.domain.issue.dto.IssueResponseDto;
 import kr.ssok.ssom.backend.domain.issue.service.IssueService;
 import kr.ssok.ssom.backend.domain.user.security.principal.UserPrincipal;
 import kr.ssok.ssom.backend.global.dto.LlmIssueResponseDto;
+import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
@@ -177,12 +178,12 @@ public class IssueController {
     }
     
     /**
-     * GitHub Webhook 처리 (추후 완전 구현 예정)
+     * GitHub Webhook 처리
      */
     @Operation(summary = "GitHub Webhook 처리", description = "GitHub에서 Issue 상태가 변경될 때 호출되는 Webhook을 처리합니다.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Webhook 처리 성공"),
-        @ApiResponse(responseCode = "400", description = "잘못된 Webhook 요청"),
+        @ApiResponse(responseCode = "400", description = "잘못된 Webhook 요청 (서명 검증 실패 등)"),
         @ApiResponse(responseCode = "500", description = "Webhook 처리 실패")
     })
     @PostMapping("/webhook/github")
@@ -191,15 +192,30 @@ public class IssueController {
             @RequestHeader(value = "X-GitHub-Event", required = false) String eventType,
             @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature) {
         
-        log.info("GitHub Webhook 수신 - 이벤트 타입: {}", eventType);
+        log.info("GitHub Webhook 수신 - 이벤트 타입: {}, 페이로드 길이: {}", 
+                eventType, payload != null ? payload.length() : 0);
         
         try {
-            // TODO: 완전 구현 필요
-            // 현재는 기본 응답만 반환
-            log.info("GitHub Webhook 처리 완료 (기본 응답) - Payload 길이: {}", payload != null ? payload.length() : 0);
+            // IssueService의 완전히 구현된 Webhook 처리 로직 호출
+            issueService.handleGitHubWebhook(payload, eventType, signature);
+            
+            log.info("GitHub Webhook 처리 완료 - 이벤트 타입: {}", eventType);
             return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS));
+            
+        } catch (BaseException e) {
+            log.error("GitHub Webhook 처리 실패 - BaseException: {}", e.getMessage());
+            
+            // BaseException의 상태에 따라 적절한 HTTP 상태 코드 반환
+            if (e.getStatus() == BaseResponseStatus.BAD_REQUEST) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new BaseResponse<>(BaseResponseStatus.BAD_REQUEST));
+            }
+            
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new BaseResponse<>(BaseResponseStatus.INTERNAL_SERVER_ERROR));
+                
         } catch (Exception e) {
-            log.error("GitHub Webhook 처리 실패: {}", e.getMessage());
+            log.error("GitHub Webhook 처리 중 예상치 못한 오류 발생", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new BaseResponse<>(BaseResponseStatus.INTERNAL_SERVER_ERROR));
         }

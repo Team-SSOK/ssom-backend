@@ -59,10 +59,10 @@ public class AlertController {
     /*********************************************************************************************************************/
     @Operation(summary = "그라파나 알림", description = "그라파나 알림 데이터를 받아 앱으로 전송합니다.")
     @PostMapping("/grafana")
-    public BaseResponse<List<AlertResponseDto>> sendGrafanaAlert(@RequestBody AlertGrafanaRequestDto alertGrafanaRequestDto) {
+    public BaseResponse<List<AlertResponseDto>> sendGrafanaAlert(@RequestBody AlertGrafanaRequestDto requestDto) {
         log.info("[그라파나 알림] 컨트롤러 진입");
 
-        List<AlertResponseDto> responses = alertService.createGrafanaAlert(alertGrafanaRequestDto);
+        List<AlertResponseDto> responses = alertService.createGrafanaAlert(requestDto);
         return new BaseResponse<>(BaseResponseStatus.SUCCESS, responses);
     }
 
@@ -79,20 +79,22 @@ public class AlertController {
 
     @Operation(summary = "이슈 생성 알림", description = "이슈 생성 시 앱으로 알림을 전송합니다.")
     @PostMapping("/issue")
-    public BaseResponse<List<AlertResponseDto>> sendIssueAlert(@RequestBody AlertIssueRequestDto AlertIssueRequest) {
+    public BaseResponse<List<AlertResponseDto>> sendIssueAlert(@RequestBody AlertIssueRequestDto requestDto) {
         log.info("[이슈 생성 알림] 컨트롤러 진입");
 
-        List<AlertResponseDto> responses = alertService.createIssueAlert(AlertIssueRequest);
+        List<AlertResponseDto> responses = alertService.createIssueAlert(requestDto);
         return new BaseResponse<>(BaseResponseStatus.SUCCESS, responses);
     }
 
-    /*
+
     @Operation(summary = "Jenkins 및 argoCD 알림", description = "Jenkins 및 argoCD 작업 완료 시 앱으로 알림을 전송합니다.")
     @PostMapping("/send")
-    public BaseResponse<List<AlertResponseDto>> sendDevopsAlert(@RequestBody AlertSendRequestDto alertSendRequest) {
+    public ResponseEntity<BaseResponse<Void>> sendDevopsAlert(@RequestBody AlertSendRequestDto requestDto) {
         log.info("[Jenkins 및 argoCD 알림] 컨트롤러 진입");
 
-        List<AlertResponseDto> responses = alertService.createDevopsAlert(alertSendRequest);
-        return new BaseResponse<>(BaseResponseStatus.SUCCESS, responses);
-    }*/
+        alertService.createDevopsAlert(requestDto);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
+    }
 }

@@ -2,12 +2,10 @@ package kr.ssok.ssom.backend.domain.alert.dto;
 
 import lombok.Getter;
 
-import java.time.LocalDateTime;
-
 @Getter
 public class AlertSendRequestDto {
-    private String app;
     private String level;
+    private String app;
+    private String timestamp;
     private String message;
-    private LocalDateTime timestamp;
 }

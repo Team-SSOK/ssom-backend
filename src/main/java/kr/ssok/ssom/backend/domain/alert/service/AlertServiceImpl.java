@@ -1,5 +1,7 @@
 package kr.ssok.ssom.backend.domain.alert.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import kr.ssok.ssom.backend.domain.alert.dto.*;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +34,8 @@ public class AlertServiceImpl implements AlertService {
     private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60; // 1시간
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
 
+    private final ObjectMapper objectMapper;
+
     private final AlertRepository alertRepository;
     private final AlertStatusRepository alertStatusRepository;
     private final UserRepository userRepository;
@@ -41,7 +46,7 @@ public class AlertServiceImpl implements AlertService {
     public SseEmitter subscribe(String employeeId, String lastEventId, HttpServletResponse response){
         log.info("[SSE 구독] 서비스 진입");
 
-        String emitterId = createTimeIncludeId(employeeId);
+        String emitterId = createTimeIncludeId(employeeId); //TODO employeeId 만 id에 적용되도록 변경
 
         SseEmitter emitter = new SseEmitter(DEFAULT_TIMEOUT);
         emitters.put(emitterId, emitter);
@@ -73,17 +78,17 @@ public class AlertServiceImpl implements AlertService {
     /*
      * 알림 SSE 전송
      * */
-    public void sendAlertToUser(String username, AlertResponseDto alertResponseDto) {
+    public void sendAlertToUser(String emitterId, AlertResponseDto alertResponseDto) {
         log.info("[알림 SSE 전송] 서비스 진입");
         
-        SseEmitter emitter = emitters.get(username);
+        SseEmitter emitter = emitters.get(emitterId);
         if (emitter != null) {
             try {
                 emitter.send(SseEmitter.event()
                         .name("alert")
                         .data(alertResponseDto));
             } catch (IOException e) {
-                emitters.remove(username);
+                emitters.remove(emitterId);
             }
         }
     }
@@ -179,7 +184,7 @@ public class AlertServiceImpl implements AlertService {
 
         // 6. 알림 푸시
         for (AlertResponseDto dto : dtoList) {
-            sendAlertToUser(dto.getUsername(), dto);
+            sendAlertToUser(dto.getEmployeeId(), dto);
         }
 
         return dtoList;
@@ -191,8 +196,46 @@ public class AlertServiceImpl implements AlertService {
     }
 
     @Override
-    public List<AlertResponseDto> createOpensearchAlert(AlertOpensearchRequestDto alertOpensearchRequest) {
-        return List.of();
+    public void createOpensearchAlert(AlertOpensearchRequestDto requestDto) {
+        log.info("[오픈서치 대시보드 알림] 서비스 진입");
+        
+        String rawJson = requestDto.getRequest();
+        List<AlertOpensearchDto> alerts = parseRawStringToDtoList(rawJson);
+        
+        for (AlertOpensearchDto alert : alerts) {
+            String id = alert.getId();
+            String level = alert.getLevel();
+            String app = alert.getApp();
+            LocalDateTime timestamp = alert.getTimestamp();
+            String message = alert.getMessage();
+/*
+            AlertRequestDto alertRequest = AlertRequestDto.builder()
+                    ._index(alert.getApp())
+                    .title("[" + alert.getLevel() + "] 발생 : "+ alert.getApp())
+                    .message(alert.getKind())
+                    .build();
+
+            createAlert(alertRequest, AlertKind.OPENSEARCH);*/
+        }
+    }
+
+    private List<AlertOpensearchDto> parseRawStringToDtoList(String raw) {
+        try {
+            // 전처리: {{ → {, }}, → }, 마지막 쉼표 제거 후 배열 감싸기
+            String fixed = raw
+                    .replaceAll("\\{\\s*\\{", "{")
+                    .replaceAll("}\\s*},?", "},")
+                    .trim();
+
+            if (fixed.endsWith(",")) {
+                fixed = fixed.substring(0, fixed.length() - 1);
+            }
+            fixed = "[" + fixed + "]";
+
+            return objectMapper.readValue(fixed, new TypeReference<>() {});
+        } catch (Exception e) {
+            throw new RuntimeException("JSON 파싱 실패", e);
+        }
     }
 
     @Override

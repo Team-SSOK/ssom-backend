@@ -9,4 +9,10 @@ public class AlertRequestDto {
     private String _index;
     private String title;
     private String message;
+
+//    private String id;
+//    private String level;
+//    private String app;
+//    private String timestamp;
+//    private String message;
 }

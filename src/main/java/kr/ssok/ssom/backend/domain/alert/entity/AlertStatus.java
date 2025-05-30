@@ -25,6 +25,7 @@ public class AlertStatus {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "alert_id", nullable = false)
     private Alert alert;
+
     //읽음 여부
     private boolean isRead;
 

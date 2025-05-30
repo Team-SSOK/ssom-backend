@@ -33,6 +33,7 @@ public class AlertController {
     public SseEmitter subscribe(@Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal userPrincipal,
                                 @RequestHeader(value = "Last-Event-ID", required = false, defaultValue = "") String lastEventId,
                                 HttpServletResponse response) {
+        log.info("[알림 SSE 구독] 컨트롤러 진입");
 
         return alertService.subscribe(userPrincipal.getEmployeeId(), lastEventId, response);
     }

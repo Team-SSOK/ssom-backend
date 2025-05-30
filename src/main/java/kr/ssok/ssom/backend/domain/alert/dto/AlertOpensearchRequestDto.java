@@ -5,7 +5,7 @@ import lombok.Getter;
 import java.time.LocalDateTime;
 
 @Getter
-public class AlertSendRequestDto {
+public class AlertOpensearchRequestDto {
     private String app;
     private String level;
     private String message;

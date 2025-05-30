@@ -1,11 +1,13 @@
 package kr.ssok.ssom.backend.domain.alert.dto;
 
+import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
 
 @Getter
-public class AlertSendRequestDto {
+@Builder
+public class AlertIssueRequestDto {
     private String app;
     private String level;
     private String message;

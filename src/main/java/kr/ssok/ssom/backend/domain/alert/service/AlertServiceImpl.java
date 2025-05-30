@@ -2,9 +2,7 @@ package kr.ssok.ssom.backend.domain.alert.service;
 
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
-import kr.ssok.ssom.backend.domain.alert.dto.AlertModifyRequestDto;
-import kr.ssok.ssom.backend.domain.alert.dto.AlertRequestDto;
-import kr.ssok.ssom.backend.domain.alert.dto.AlertResponseDto;
+import kr.ssok.ssom.backend.domain.alert.dto.*;
 import kr.ssok.ssom.backend.domain.alert.entity.Alert;
 import kr.ssok.ssom.backend.domain.alert.entity.AlertStatus;
 import kr.ssok.ssom.backend.domain.alert.entity.constant.AlertKind;
@@ -41,7 +39,7 @@ public class AlertServiceImpl implements AlertService {
     * 알림 SSE 구독
     * */
     public SseEmitter subscribe(String employeeId, String lastEventId, HttpServletResponse response){
-        log.info("[알림 SSE 구독] 서비스 진입");
+        log.info("[SSE 구독] 서비스 진입");
 
         String emitterId = createTimeIncludeId(employeeId);
 
@@ -89,7 +87,37 @@ public class AlertServiceImpl implements AlertService {
             }
         }
     }
-    
+
+    /*
+     * 전체 알림 목록 조회
+     * */
+    @Override
+    public List<AlertResponseDto> getAllAlertsForUser(String employeeId) {
+        log.info("[전체 알림 목록 조회] 서비스 진입");
+
+        return alertStatusRepository.findByUser_Id(employeeId)
+                .stream()
+                .map(AlertResponseDto::from)
+                .collect(Collectors.toList());
+    }
+
+    /*
+     * 알림 상태 변경
+     * */
+    @Override
+    public void modifyAlertStatus(AlertModifyRequestDto request) {
+        log.info("[알림 상태 변경] 서비스 진입");
+
+        AlertStatus status = alertStatusRepository.findById(request.getAlertStatusId())
+                .orElseThrow(() -> new RuntimeException("AlertStatus not found"));
+        if (request.isRead()) {
+            status.markAsRead();
+        } else {
+            status.markAsUnread();
+        }
+    }
+    /******************************************************************************************************/
+
     /*
     * 알림 저장 및 전송
     * */
@@ -157,6 +185,28 @@ public class AlertServiceImpl implements AlertService {
         return dtoList;
     }
 
+    @Override
+    public List<AlertResponseDto> createGrafanaAlert(AlertGrafanaRequestDto alertGrafanaRequestDto) {
+        return List.of();
+    }
+
+    @Override
+    public List<AlertResponseDto> createOpensearchAlert(AlertOpensearchRequestDto alertOpensearchRequest) {
+        return List.of();
+    }
+
+    @Override
+    public List<AlertResponseDto> createIssueAlert(AlertIssueRequestDto alertIssueRequest) {
+        return List.of();
+    }
+
+    /*
+    @Override
+    public List<AlertResponseDto> createDevopsAlert(AlertSendRequestDto alertSendRequest) {
+        return List.of();
+    }
+    */
+
     /*
     @Override
     public void sendAlertToUsers(AlertSendRequestDto request) {
@@ -185,32 +235,5 @@ public class AlertServiceImpl implements AlertService {
     }
     */
 
-    /*
-    * 전체 알림 목록 조회
-    * */
-    @Override
-    public List<AlertResponseDto> getAllAlertsForUser(String employeeId) {
-        log.info("[전체 알림 목록 조회] 서비스 진입");
 
-        return alertStatusRepository.findByUser_Id(employeeId)
-                .stream()
-                .map(AlertResponseDto::from)
-                .collect(Collectors.toList());
-    }
-
-    /*
-     * 알림 상태 변경
-     * */
-    @Override
-    public void modifyAlertStatus(AlertModifyRequestDto request) {
-        log.info("[알림 상태 변경] 서비스 진입");
-
-        AlertStatus status = alertStatusRepository.findById(request.getAlertStatusId())
-                .orElseThrow(() -> new RuntimeException("AlertStatus not found"));
-        if (request.isRead()) {
-            status.markAsRead();
-        } else {
-            status.markAsUnread();
-        }
-    }
 }

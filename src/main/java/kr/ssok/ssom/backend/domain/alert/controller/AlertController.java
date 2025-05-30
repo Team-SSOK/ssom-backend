@@ -3,19 +3,15 @@ package kr.ssok.ssom.backend.domain.alert.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletResponse;
-import kr.ssok.ssom.backend.domain.alert.dto.AlertModifyRequestDto;
-import kr.ssok.ssom.backend.domain.alert.dto.AlertRequestDto;
-import kr.ssok.ssom.backend.domain.alert.dto.AlertResponseDto;
-import kr.ssok.ssom.backend.domain.alert.entity.constant.AlertKind;
+import kr.ssok.ssom.backend.domain.alert.dto.*;
 import kr.ssok.ssom.backend.domain.alert.service.AlertService;
 import kr.ssok.ssom.backend.domain.user.security.principal.UserPrincipal;
-import kr.ssok.ssom.backend.domain.user.service.UserService;
 import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
-import org.springframework.security.web.bind.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -26,9 +22,9 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class AlertController {
+ // TODO class 에 swagger 적용
 
     private final AlertService alertService;
-    private final UserService userService;
 
     @Operation(summary = "알림 SSE 구독", description = "알림에 대해 SSE 구독을 진행합니다.")
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -57,42 +53,41 @@ public class AlertController {
         return new BaseResponse<>(BaseResponseStatus.SUCCESS);
     }
 
+    /*********************************************************************************************************************/
     @Operation(summary = "그라파나 알림", description = "그라파나 알림 데이터를 받아 앱으로 전송합니다.")
     @PostMapping("/grafana")
-    public BaseResponse<List<AlertResponseDto>> getGrafanaAlerts(@RequestBody AlertRequestDto alertRequest) {
+    public BaseResponse<List<AlertResponseDto>> sendGrafanaAlert(@RequestBody AlertGrafanaRequestDto alertGrafanaRequestDto) {
         log.info("[그라파나 알림] 컨트롤러 진입");
 
-        List<AlertResponseDto> responses = alertService.createAlert(alertRequest, AlertKind.GRAFANA);
+        List<AlertResponseDto> responses = alertService.createGrafanaAlert(alertGrafanaRequestDto);
         return new BaseResponse<>(BaseResponseStatus.SUCCESS, responses);
     }
 
     @Operation(summary = "오픈서치 대시보드 알림", description = "오픈서치 대시보드 알림 데이터를 받아 앱으로 전송합니다.")
     @PostMapping("/opensearch")
-    public BaseResponse<List<AlertResponseDto>> sendOpenSearchAlert(@RequestBody AlertRequestDto alertRequest) {
+    public BaseResponse<List<AlertResponseDto>> sendOpensearchAlert(@RequestBody AlertOpensearchRequestDto alertOpensearchRequest) {
         log.info("[오픈서치 대시보드 알림] 컨트롤러 진입");
 
-        List<AlertResponseDto> responses = alertService.createAlert(alertRequest, AlertKind.OPENSEARCH);
+        List<AlertResponseDto> responses = alertService.createOpensearchAlert(alertOpensearchRequest);
         return new BaseResponse<>(BaseResponseStatus.SUCCESS, responses);
     }
 
     @Operation(summary = "이슈 생성 알림", description = "이슈 생성 시 앱으로 알림을 전송합니다.")
     @PostMapping("/issue")
-    public BaseResponse<List<AlertResponseDto>> sendIssueAlert(@RequestBody AlertRequestDto alertRequest) {
+    public BaseResponse<List<AlertResponseDto>> sendIssueAlert(@RequestBody AlertIssueRequestDto AlertIssueRequest) {
         log.info("[이슈 생성 알림] 컨트롤러 진입");
 
-        List<AlertResponseDto> responses = alertService.createAlert(alertRequest, AlertKind.ISSUE);
+        List<AlertResponseDto> responses = alertService.createIssueAlert(AlertIssueRequest);
         return new BaseResponse<>(BaseResponseStatus.SUCCESS, responses);
     }
 
+    /*
     @Operation(summary = "Jenkins 및 argoCD 알림", description = "Jenkins 및 argoCD 작업 완료 시 앱으로 알림을 전송합니다.")
     @PostMapping("/send")
-    public BaseResponse<List<AlertResponseDto>> sendAlert(@RequestBody AlertRequestDto alertRequest) {
-        //TODO : Jenkins 와 argoCD api 분리 여부?
-
+    public BaseResponse<List<AlertResponseDto>> sendDevopsAlert(@RequestBody AlertSendRequestDto alertSendRequest) {
         log.info("[Jenkins 및 argoCD 알림] 컨트롤러 진입");
 
-        List<AlertResponseDto> responses = alertService.createAlert(alertRequest, AlertKind.JENKINS);
-       // List<AlertResponseDto> responses = alertService.createAlert(alertRequest, AlertKind.ARGOCD);
+        List<AlertResponseDto> responses = alertService.createDevopsAlert(alertSendRequest);
         return new BaseResponse<>(BaseResponseStatus.SUCCESS, responses);
-    }
+    }*/
 }

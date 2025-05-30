@@ -218,10 +218,11 @@ public class AlertServiceImpl implements AlertService {
 
             createAlert(alertRequest, AlertKind.OPENSEARCH);
         }
+        log.info("[오픈서치 대시보드 알림] 서비스 처리 완료");
     }
 
     private List<AlertRequestDto> parseRawStringToDtoList(String raw) {
-        log.info("[오픈서치 대시보드 알림] JSON Parsing 진행 중 ...");
+        log.info("[JSON Parsing] 진행 중 ...");
 
         try {
             // 전처리: {{ → {, }}, → }, 마지막 쉼표 제거 후 배열 감싸기
@@ -237,21 +238,50 @@ public class AlertServiceImpl implements AlertService {
 
             return objectMapper.readValue(fixed, new TypeReference<>() {});
         } catch (Exception e) {
-            throw new RuntimeException("JSON 파싱 실패", e);
+            log.error("[JSON Parsing] JSON Parsing 실패");
+            throw new RuntimeException("JSON Parsing 실패", e);
         }
     }
 
     @Override
-    public List<AlertResponseDto> createIssueAlert(AlertIssueRequestDto alertIssueRequest) {
+    public List<AlertResponseDto> createIssueAlert(AlertIssueRequestDto requestDto) {
         return List.of();
     }
 
-    /*
+
     @Override
-    public List<AlertResponseDto> createDevopsAlert(AlertSendRequestDto alertSendRequest) {
-        return List.of();
+    public void createDevopsAlert(AlertSendRequestDto requestDto) {
+        log.info("[DevOps 알림 생성] 서비스 진입");
+
+        // 1. app에서 alertKind와 appName 파싱
+        String[] appParts = requestDto.getApp().split("_");
+        if (appParts.length != 2) {
+            throw new IllegalArgumentException("[DevOps 알림 생성] 잘못된 app 형식입니다. 예: jenkins_ssok-bank");
+        }
+
+        String kindStr = appParts[0].toUpperCase(); // "JENKINS", "ARGOCD"
+        String appName = appParts[1];               // "ssok-bank"
+
+        AlertKind devopsKind;
+        try {
+            devopsKind = AlertKind.valueOf(kindStr);
+            AlertRequestDto alertRequest = AlertRequestDto.builder()
+                    .id(devopsKind + "_noNeedId")
+                    .level(requestDto.getLevel())
+                    .app(appName)
+                    .timestamp(requestDto.getTimestamp())
+                    .message(requestDto.getMessage())
+                    .build();
+
+            createAlert(alertRequest, devopsKind);
+
+        } catch (IllegalArgumentException e) {
+            log.error("[DevOps 알림 생성] 실패");
+            throw new RuntimeException("[DevOps 알림 생성] 지원하지 않는 AlertKind입니다: " + kindStr);
+        }
+
+        log.info("[DevOps 알림 생성] 서비스 처리 완료");
     }
-    */
 
     /*
     @Override

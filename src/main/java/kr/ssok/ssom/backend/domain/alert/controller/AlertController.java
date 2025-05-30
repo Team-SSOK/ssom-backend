@@ -59,11 +59,13 @@ public class AlertController {
     /*********************************************************************************************************************/
     @Operation(summary = "그라파나 알림", description = "그라파나 알림 데이터를 받아 앱으로 전송합니다.")
     @PostMapping("/grafana")
-    public BaseResponse<List<AlertResponseDto>> sendGrafanaAlert(@RequestBody AlertGrafanaRequestDto requestDto) {
+    public ResponseEntity<BaseResponse<Void>> sendGrafanaAlert(@RequestBody AlertGrafanaRequestDto requestDto) {
         log.info("[그라파나 알림] 컨트롤러 진입");
 
-        List<AlertResponseDto> responses = alertService.createGrafanaAlert(requestDto);
-        return new BaseResponse<>(BaseResponseStatus.SUCCESS, responses);
+        alertService.createGrafanaAlert(requestDto);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
 
     @Operation(summary = "오픈서치 대시보드 알림", description = "오픈서치 대시보드 알림 데이터를 받아 앱으로 전송합니다.")
@@ -79,11 +81,13 @@ public class AlertController {
 
     @Operation(summary = "이슈 생성 알림", description = "이슈 생성 시 앱으로 알림을 전송합니다.")
     @PostMapping("/issue")
-    public BaseResponse<List<AlertResponseDto>> sendIssueAlert(@RequestBody AlertIssueRequestDto requestDto) {
+    public ResponseEntity<BaseResponse<Void>> sendIssueAlert(@RequestBody AlertIssueRequestDto requestDto) {
         log.info("[이슈 생성 알림] 컨트롤러 진입");
 
-        List<AlertResponseDto> responses = alertService.createIssueAlert(requestDto);
-        return new BaseResponse<>(BaseResponseStatus.SUCCESS, responses);
+        alertService.createIssueAlert(requestDto);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
 
 

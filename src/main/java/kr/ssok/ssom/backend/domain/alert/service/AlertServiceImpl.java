@@ -196,8 +196,10 @@ public class AlertServiceImpl implements AlertService {
     }
 
     @Override
-    public List<AlertResponseDto> createGrafanaAlert(AlertGrafanaRequestDto alertGrafanaRequestDto) {
-        return List.of();
+    public void createGrafanaAlert(AlertGrafanaRequestDto alertGrafanaRequestDto) {
+        log.info("[그라파나 알림] 서비스 진입");
+
+        log.info("[그라파나 알림] 서비스 처리 완료");
     }
 
     @Override
@@ -244,8 +246,38 @@ public class AlertServiceImpl implements AlertService {
     }
 
     @Override
-    public List<AlertResponseDto> createIssueAlert(AlertIssueRequestDto requestDto) {
-        return List.of();
+    public void createIssueAlert(AlertIssueRequestDto requestDto) {
+        log.info("[이슈 생성 알림] 서비스 진입");
+
+        // 1. Alert 저장
+        Alert alert = Alert.builder()
+                .title("[ISSUE] 이슈 공유") // 예: [이슈] ssok-app - HIGH
+                .message("새로운 이슈가 공유되었습니다.")
+                .kind(AlertKind.ISSUE)
+                .build();
+        alertRepository.save(alert);
+
+        // 2. 알림 공유 대상자 목록 가져오기
+        List<User> targetUsers = new ArrayList<>();
+        if (requestDto.getSharedEmployeeIds() != null && !requestDto.getSharedEmployeeIds().isEmpty()) {
+            targetUsers = userRepository.findAllById(requestDto.getSharedEmployeeIds());
+        }
+
+        // 3. AlertStatus 생성 및 SSE 알림 전송
+        for (User user : targetUsers) {
+            AlertStatus alertStatus = AlertStatus.builder()
+                    .alert(alert)
+                    .user(user)
+                    .isRead(false)
+                    .build();
+            alertStatusRepository.save(alertStatus);
+
+            // SSE 전송
+            AlertResponseDto responseDto = AlertResponseDto.from(alertStatus);
+            sendSseAlertToUser(user.getId(), responseDto);
+        }
+
+        log.info("[이슈 생성 알림] 서비스 처리 완료");
     }
 
 
@@ -310,6 +342,4 @@ public class AlertServiceImpl implements AlertService {
                 .collect(Collectors.toList());
     }
     */
-
-
 }

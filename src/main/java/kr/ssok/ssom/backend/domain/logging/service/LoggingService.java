@@ -10,7 +10,7 @@ public interface LoggingService {
 
     LogsResponseDto getLogs();
 
-    LogInfoResponseDto getLogInfo(String logId);
+    LogSummaryMessageDto getLogInfo(String logId);
 
-    LogSummaryMessageDto summarizeLog(LogRequestDto request);
+    LogSummaryMessageDto summarizeLog(LogDto request);
 }

@@ -15,5 +15,8 @@ import org.springframework.data.annotation.Id;
 public class LogSummary {
     @Id
     private String logId;
-    private String summary;
+    private String title;
+    private String fileLocation;
+    private String functionLocation;
+    private String solution;
 }

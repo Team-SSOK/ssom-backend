@@ -5,11 +5,13 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class LogSummaryResponseDto {
-    private LogRequestDto log;
+    private List<LogRequestDto> logs;
     private LogSummaryMessageDto message;
 }

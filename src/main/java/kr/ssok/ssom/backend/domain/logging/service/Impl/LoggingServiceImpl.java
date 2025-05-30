@@ -1,13 +1,17 @@
 package kr.ssok.ssom.backend.domain.logging.service.Impl;
 
 import kr.ssok.ssom.backend.domain.logging.dto.*;
+import kr.ssok.ssom.backend.domain.logging.entity.LogSummary;
 import kr.ssok.ssom.backend.domain.logging.repository.LogSummaryRepository;
 import kr.ssok.ssom.backend.domain.logging.service.LoggingService;
-import kr.ssok.ssom.backend.global.dto.LogRequestDto;
-import kr.ssok.ssom.backend.global.dto.LogSummaryMessageDto;
+import kr.ssok.ssom.backend.global.client.LlmServiceClient;
+import kr.ssok.ssom.backend.global.dto.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -15,6 +19,7 @@ import org.springframework.stereotype.Service;
 public class LoggingServiceImpl implements LoggingService {
 
     private final LogSummaryRepository logSummaryRepository;
+    private final LlmServiceClient llmServiceClient;
 
     @Override
     public ServicesResponseDto getServices() {
@@ -30,23 +35,68 @@ public class LoggingServiceImpl implements LoggingService {
         return null;
     }
 
+    /**
+     * 로그 상세 조회 - 이전에 생성한 LLM 요약 반환
+     */
     @Override
-    public LogInfoResponseDto getLogInfo(String logId) {
-        // DB에 로그 아이디를 검색해 키가 존재할 시 분석 내용 가져오기
-        // 없을 시 아무것도 반환하지 않음 (프론트 쪽에서는 분석 버튼 보여주기)
-        return null;
+    public LogSummaryMessageDto getLogInfo(String logId) {
+
+        // DB에 로그 아이디로 조회
+        Optional<LogSummary> summaryOpt = logSummaryRepository.findByLogId(logId);
+
+        // 없을 시 아무것도 반환하지 않음
+        if (summaryOpt.isEmpty()) {
+            return null;
+        }
+
+        LogSummary summaryEntity = summaryOpt.get();
+
+        LogLocationDto locationdto = LogLocationDto.builder()
+                .file(summaryEntity.getFileLocation())
+                .function(summaryEntity.getFunctionLocation())
+                .build();
+        LogSummaryMessageDto summaryDto = LogSummaryMessageDto.builder()
+                .title(summaryEntity.getTitle())
+                .location(locationdto)
+                .solution(summaryEntity.getSolution())
+                .build();
+
+        return summaryDto;
     }
 
-    // 로그 상세 조회 중 로그 LLM 요약
+    /**
+     * 로그 상세 조회 - 새롭게 생성한 LLM 요약 반환
+     */
     @Override
-    public LogSummaryMessageDto summarizeLog(LogRequestDto request) {
+    public LogSummaryMessageDto summarizeLog(LogDto request) {
 
-        // LLM 쪽 api 이용해서 정보 받아오기 -> dto를 entity로 변환
+        // LLM 쪽으로 api 요청
+        LogRequestDto requestDto = LogRequestDto.builder()
+                .level(request.getLevel())
+                .logger(request.getLogger())
+                .thread(request.getThread())
+                .message(request.getMessage())
+                .app(request.getApp())
+                .build();
+        LlmApiRequestDto llmRequestDto = LlmApiRequestDto.builder()
+                .logs(List.of(requestDto))
+                .build();
+        LlmApiResponseDto<LogSummaryResponseDto> llmResponseDto = llmServiceClient.summarizeLog(llmRequestDto);
 
+        // 응답에서 요약 메시지 추출
+        LogSummaryMessageDto summaryDto = llmResponseDto.getResult().get(0).getMessage();
 
-        // DB에 분석 내용 저장
+        // DB에 저장
+        LogSummary summaryEntity = LogSummary.builder()
+                .logId(request.getLogId())
+                .title(summaryDto.getTitle())
+                .fileLocation(summaryDto.getLocation().getFile())
+                .functionLocation(summaryDto.getLocation().getFunction())
+                .solution(summaryDto.getSolution())
+                .build();
+        logSummaryRepository.save(summaryEntity);
 
         // 분석 내용 반환
-        return null;
+        return summaryDto;
     }
 }

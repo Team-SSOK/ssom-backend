@@ -237,6 +237,7 @@ public class AlertServiceImpl implements AlertService {
 
             return objectMapper.readValue(fixed, new TypeReference<>() {});
         } catch (Exception e) {
+            log.error("[오픈서치 대시보드 알림] JSON Parsing 실패");
             throw new RuntimeException("JSON 파싱 실패", e);
         }
     }

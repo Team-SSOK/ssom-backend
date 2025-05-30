@@ -13,9 +13,9 @@ public interface AlertService {
     void modifyAlertStatus(AlertModifyRequestDto request);
 
     void createAlert(AlertRequestDto request, AlertKind kind);
-    List<AlertResponseDto> createGrafanaAlert(AlertGrafanaRequestDto requestDto);
+    void createGrafanaAlert(AlertGrafanaRequestDto requestDto);
     void createOpensearchAlert(AlertOpensearchRequestDto requestDto);
-    List<AlertResponseDto> createIssueAlert(AlertIssueRequestDto requestDto);
+    void createIssueAlert(AlertIssueRequestDto requestDto);
     void createDevopsAlert(AlertSendRequestDto requestDto);
 
     //void sendAlertToUsers(AlertSendRequestDto request);

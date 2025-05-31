@@ -59,4 +59,19 @@ public interface UserRepository extends JpaRepository<User, String> {
     default boolean existsByEmployeeId(String employeeId) {
         return existsById(employeeId); // PK 존재 여부 확인
     }
+    
+    /**
+     * 사용자명으로 사용자 목록 검색 (부분 검색, 대소문자 무시)
+     * @param username 검색할 사용자명
+     * @return 사용자 목록
+     */
+    List<User> findByUsernameContainingIgnoreCase(String username);
+    
+    /**
+     * GitHub ID가 있는 사용자들만 사용자명으로 검색
+     * @param username 검색할 사용자명
+     * @return GitHub ID가 있는 사용자 목록
+     */
+    @Query("SELECT u FROM User u WHERE u.username LIKE %:username% AND u.githubId IS NOT NULL AND u.githubId != ''")
+    List<User> findByUsernameContainingIgnoreCaseAndGithubIdIsNotNull(@Param("username") String username);
 }

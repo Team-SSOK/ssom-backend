@@ -18,6 +18,8 @@ import org.springframework.security.web.bind.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/logging")
@@ -29,7 +31,7 @@ public class LoggingController {
 
     // 서비스 목록 조회
     @GetMapping("/services")
-    public ResponseEntity<BaseResponse<ServicesResponseDto>> getServices() {
+    public ResponseEntity<BaseResponse<ServicesResponseDto>> getServices() throws IOException {
 
         log.info("서비스 목록 조회 요청");
         ServicesResponseDto response = loggingService.getServices();
@@ -40,7 +42,7 @@ public class LoggingController {
 
     // 로그 목록 조회
     @GetMapping
-    public ResponseEntity<BaseResponse<LogsResponseDto>> getLogs() {
+    public ResponseEntity<BaseResponse<LogsResponseDto>> getLogs() throws Exception {
 
         log.info("로그 목록 조회 요청");
         LogsResponseDto response = loggingService.getLogs();

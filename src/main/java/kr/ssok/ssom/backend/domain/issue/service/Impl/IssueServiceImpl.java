@@ -6,6 +6,7 @@ import kr.ssok.ssom.backend.domain.issue.entity.Issue;
 import kr.ssok.ssom.backend.domain.issue.entity.constant.IssueStatus;
 import kr.ssok.ssom.backend.domain.issue.repository.IssueRepository;
 import kr.ssok.ssom.backend.domain.issue.service.IssueService;
+import kr.ssok.ssom.backend.domain.logging.dto.LogDto;
 import kr.ssok.ssom.backend.domain.logging.service.LoggingService;
 import kr.ssok.ssom.backend.domain.user.entity.User;
 import kr.ssok.ssom.backend.domain.user.repository.UserRepository;
@@ -52,7 +53,7 @@ public class IssueServiceImpl implements IssueService {
         
         try {
             // 1. 로그 ID들로 실제 로그 데이터 조회
-            List<LogDataDto> logDataList = loggingService.getLogsByIds(request.getLogIds());
+            List<LogDto> logDataList = loggingService.getLogsByIds(request.getLogIds());
             log.info("조회된 로그 개수: {}", logDataList.size());
             
             // 2. 로그 데이터를 LLM API 요청 형식으로 변환
@@ -211,7 +212,7 @@ public class IssueServiceImpl implements IssueService {
     }
     
     /**
-     * GitHub Webhook을 통한 Issue 상태 동기화 (Phase 6에서 완전 구현 예정)
+     * GitHub Webhook을 통한 Issue 상태 동기화
      */
     @Override
     @Transactional

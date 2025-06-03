@@ -1,18 +1,14 @@
 package kr.ssok.ssom.backend.global.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.EqualsAndHashCode;
 
 /**
  * GitHub Webhook 발신자 정보 DTO
  * GitHubWebhookUserDto와 동일한 구조이지만 명확성을 위해 별도 클래스로 정의
  */
 @Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
 public class GitHubWebhookSenderDto extends GitHubWebhookUserDto {
     
     // GitHubWebhookUserDto의 모든 필드를 상속받음

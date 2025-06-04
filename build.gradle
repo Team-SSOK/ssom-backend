@@ -23,16 +23,23 @@ repositories {
     mavenCentral()
 }
 
+dependencyManagement {
+
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2024.0.0"
+    }
+}
+
 dependencies {
     // validation
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-    // jpa, mariaDB
-//    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-//    runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
+    // jpa, MySQL
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    runtimeOnly 'com.mysql:mysql-connector-j'
 
     // Redis
-//    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
     // spring security, web
     implementation 'org.springframework.boot:spring-boot-starter-security'
@@ -48,9 +55,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
     // JWT 의존성
-    implementation group: 'io.jsonwebtoken', name: 'jjwt-api', version: '0.12.6'
-    runtimeOnly group: 'io.jsonwebtoken', name: 'jjwt-impl', version: '0.12.6'
-    runtimeOnly group: 'io.jsonwebtoken', name: 'jjwt-jackson', version: '0.12.6'
+    implementation group: 'io.jsonwebtoken', name: 'jjwt-api', version: '0.11.5'
+    runtimeOnly group: 'io.jsonwebtoken', name: 'jjwt-impl', version: '0.11.5'
+    runtimeOnly group: 'io.jsonwebtoken', name: 'jjwt-jackson', version: '0.11.5'
 
     // Spring Cloud 의존성 관리 (버전 관리용)
     implementation 'org.springframework.cloud:spring-cloud-dependencies:2024.0.0' // 최신 버전 확인 필요
@@ -72,6 +79,12 @@ dependencies {
 
     // Firebase Cloud Message
     implementation 'com.google.firebase:firebase-admin:9.4.3'
+
+    // OpenFeign
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+
+    // OpenSearch Java Client
+    implementation 'org.opensearch.client:opensearch-java:2.8.1'
 
 }
 

@@ -1,5 +1,6 @@
 package kr.ssok.ssom.backend.domain.alert.service.fcm;
 
+import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,10 +53,10 @@ public class FcmServiceImpl implements FcmService {
 
         } catch (DataAccessException e) {
             log.error("Redis 접근 중 오류 발생: {}", e.getMessage());
-            throw new RuntimeException("Redis 접근 중 오류 발생");
+            throw new BaseException(BaseResponseStatus.REDIS_ACCESS_FAILED);
         } catch (Exception e) {
             log.error("예상치 못한 오류 발생: {}", e.getMessage());
-            throw new RuntimeException("예상치 못한 오류 발생d");
+            throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -67,7 +68,7 @@ public class FcmServiceImpl implements FcmService {
     private void validateToken(String token) {
         if (token == null || token.isBlank()) {
             log.warn("FCM 토큰이 유효하지 않습니다.");
-            throw new RuntimeException("FCM 토큰이 유효하지 않습니다.");
+            throw new BaseException(BaseResponseStatus.INVALID_TOKEN);
         }
     }
 

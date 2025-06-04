@@ -52,13 +52,12 @@ public class LoggingController {
 
     }
 
-    // 로그 SSE 구독 (알림 서비스에 구현된 메서드 사용)
+    // 로그 SSE 구독
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(@Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal userPrincipal,
                                 @RequestHeader(value = "Last-Event-ID", required = false, defaultValue = "") String lastEventId,
                                 HttpServletResponse response) {
-
-        return alertService.subscribe(userPrincipal.getEmployeeId(), lastEventId, response);
+        return loggingService.subscribe(userPrincipal.getEmployeeId(), lastEventId, response);
     }
 
     // 로그 상세 조회 - 이전에 생성한 LLM 요약 반환

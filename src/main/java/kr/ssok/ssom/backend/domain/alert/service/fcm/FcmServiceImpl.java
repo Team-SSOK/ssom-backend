@@ -20,8 +20,8 @@ public class FcmServiceImpl implements FcmService {
 
     private final RedisTemplate<String, String> redisTemplate;
 
-//    @Value("${fcm.token-ttl-seconds}")
-    private final long ttlSeconds = 300L; // 5분 = 300초 (토큰 유효기간)
+    @Value("${fcm.token-ttl-seconds}")
+    private long ttlSeconds;
 
     /**
      * FCM 토큰을 Redis에 등록

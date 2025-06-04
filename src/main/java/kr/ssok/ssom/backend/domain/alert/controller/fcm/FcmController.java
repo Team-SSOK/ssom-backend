@@ -1,5 +1,6 @@
 package kr.ssok.ssom.backend.domain.alert.controller.fcm;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.ssok.ssom.backend.domain.alert.dto.fcm.FcmRegisterRequestDto;
 import kr.ssok.ssom.backend.domain.alert.service.fcm.FcmService;
 import kr.ssok.ssom.backend.global.exception.BaseResponse;
@@ -11,6 +12,8 @@ import org.springframework.web.bind.annotation.*;
 /**
  * FCM 토큰 등록 컨트롤러
  */
+
+@Tag(name = "FCM API", description = "FCM 관련 API를 관리하는 컨트롤러")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/fcm")

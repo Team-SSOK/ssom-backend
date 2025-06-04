@@ -18,8 +18,5 @@ public interface AlertService {
     void createOpensearchAlert(AlertOpensearchRequestDto requestDto);
     void createIssueAlert(AlertIssueRequestDto requestDto);
     void createDevopsAlert(AlertSendRequestDto requestDto);
-
-    //void sendAlertToUsers(AlertSendRequestDto request);
-    //List<AlertResponseDto> getAlertsByKind(Long userId, AlertKind kind);
 }
 

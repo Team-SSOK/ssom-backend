@@ -13,8 +13,12 @@ import kr.ssok.ssom.backend.domain.alert.repository.AlertStatusRepository;
 import kr.ssok.ssom.backend.domain.user.entity.Department;
 import kr.ssok.ssom.backend.domain.user.entity.User;
 import kr.ssok.ssom.backend.domain.user.repository.UserRepository;
+import kr.ssok.ssom.backend.global.client.FirebaseClient;
+import kr.ssok.ssom.backend.global.dto.FcmMessageRequestDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -34,6 +38,9 @@ public class AlertServiceImpl implements AlertService {
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
 
     private final ObjectMapper objectMapper;
+
+    private final RedisTemplate<String, String> redisTemplate;
+    private final FirebaseClient firebaseClient;
 
     private final AlertRepository alertRepository;
     private final AlertStatusRepository alertStatusRepository;
@@ -75,26 +82,6 @@ public class AlertServiceImpl implements AlertService {
         return employeeId + "_" + System.currentTimeMillis();
     }
 
-    /*
-     * 알림 SSE 전송
-     * */
-    public void sendSseAlertToUser(String emitterId, AlertResponseDto alertResponseDto) {
-        log.info("[알림 SSE 전송] 서비스 진입");
-        
-        SseEmitter emitter = emitters.get(emitterId);
-        if (emitter != null) {
-            try {
-                emitter.send(SseEmitter.event()
-                        .name("SSE_ALERT")
-                        .data(alertResponseDto));
-            } catch (IOException e) {
-                emitters.remove(emitterId);
-                log.error("SSE_ALERT failed");
-                throw new RuntimeException("SSE_ALERT failed" + e);
-            }
-        }
-        log.info("[알림 SSE 전송] 처리 완료.");
-    }
 
     /*
      * 전체 알림 목록 조회
@@ -140,13 +127,13 @@ public class AlertServiceImpl implements AlertService {
         alertStatusRepository.delete(status);
         log.info("[알림 개별 삭제] AlertStatus 삭제 완료");
 
+        /*
         // Alert 조회
         Alert alert = status.getAlert();
 
         // Alert 삭제
         alertRepository.delete(alert);
-        log.info("[알림 개별 삭제] Alert 삭제 완료");
-
+        */
     }
     /******************************************************************************************************/
 
@@ -220,6 +207,79 @@ public class AlertServiceImpl implements AlertService {
 
     }
 
+    /*
+    * 알림 분기
+    * */
+    public void sendAlertToUser(String employeeId, AlertResponseDto alertResponseDto) {
+        SseEmitter emitter = emitters.get(employeeId);
+
+        if (emitter != null) {
+            // 앱 내부 → SSE 전송
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("SSE_ALERT")
+                        .data(alertResponseDto));
+                log.info("[SSE 전송 성공] employeeId={}", employeeId);
+            } catch (IOException e) {
+                emitters.remove(employeeId);
+                log.error("[SSE 전송 실패, FCM으로 전환] employeeId={}", employeeId, e);
+                // SSE 실패 시 FCM 전송 시도
+                sendFcmNotification(employeeId, alertResponseDto.getTitle(), alertResponseDto.getMessage());
+            }
+        } else {
+            // 앱 외부 → FCM 전송
+            log.info("[앱 외부 감지, FCM 전송] employeeId={}", employeeId);
+            sendFcmNotification(employeeId, alertResponseDto.getTitle(), alertResponseDto.getMessage());
+        }
+    }
+
+    /*
+     * 알림 SSE 전송
+     * */
+    public void sendSseAlertToUser(String emitterId, AlertResponseDto alertResponseDto) {
+        log.info("[알림 SSE 전송] 서비스 진입");
+
+        SseEmitter emitter = emitters.get(emitterId);
+        if (emitter != null) {
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("SSE_ALERT")
+                        .data(alertResponseDto));
+            } catch (IOException e) {
+                emitters.remove(emitterId);
+                log.error("SSE_ALERT failed");
+                throw new RuntimeException("SSE_ALERT failed" + e);
+            }
+        }
+        log.info("[알림 SSE 전송] 처리 완료.");
+    }
+
+    /*
+    * 알림 FCM 구현
+    * */
+    public void sendFcmNotification(String employeeId, String title, String body) {
+        try {
+            String token = redisTemplate.opsForValue().get("userfcm:" + employeeId);
+
+            if (token == null) {
+                log.warn("FCM 토큰이 존재하지 않습니다: employeeId={}", employeeId);
+                return;
+            }
+
+            // FCM 메시지 요청 생성
+            FcmMessageRequestDto request = FcmMessageRequestDto.builder()
+                    .title(title)
+                    .body(body)
+                    .token(token)
+                    .build();
+
+            // FCM 클라이언트로 메시지 전송
+            firebaseClient.sendNotification(request);
+        } catch (DataAccessException e) {
+            throw new RuntimeException("REDIS_ACCESS_FAILED", e);
+        }
+    }
+
     @Override
     public void createGrafanaAlert(AlertGrafanaRequestDto requestDto) {
         log.info("[그라파나 알림] 서비스 진입");
@@ -243,22 +303,14 @@ public class AlertServiceImpl implements AlertService {
         log.info("[오픈서치 대시보드 알림] 서비스 진입");
         
         String rawJson = requestDto.getRequest();
-        List<AlertRequestDto> alerts = parseRawStringToDtoList(rawJson);
+        List<AlertRequestDto> alertList = parseRawStringToDtoList(rawJson);
 
-        if (alerts == null || alerts.isEmpty()) {
+        if (alertList == null || alertList.isEmpty()) {
             log.warn("[오픈서치 대시보드 알림] 전달받은 알림 리스트가 비어있습니다.");
             return;
         }
 
-        for (AlertRequestDto alert : alerts) {
-            AlertRequestDto alertRequest = AlertRequestDto.builder()
-                    .id(alert.getId())
-                    .level(alert.getLevel())
-                    .app(alert.getApp())
-                    .timestamp(alert.getTimestamp())
-                    .message(alert.getMessage())
-                    .build();
-
+        for (AlertRequestDto alertRequest : alertList) {
             createAlert(alertRequest, AlertKind.OPENSEARCH);
         }
         log.info("[오픈서치 대시보드 알림] 서비스 처리 완료");
@@ -313,7 +365,7 @@ public class AlertServiceImpl implements AlertService {
 
         // 1. Alert 저장
         Alert alert = Alert.builder()
-                .title("[ISSUE] 이슈 공유") // 예: [이슈] ssok-app - HIGH
+                .title("[ISSUE] 이슈 공유")
                 .message("새로운 이슈가 공유되었습니다.")
                 .kind(AlertKind.ISSUE)
                 .build();
@@ -334,14 +386,13 @@ public class AlertServiceImpl implements AlertService {
                     .build();
             alertStatusRepository.save(alertStatus);
 
-            // SSE 전송
+            // 알림 전송
             AlertResponseDto responseDto = AlertResponseDto.from(alertStatus);
-            sendSseAlertToUser(user.getId(), responseDto);
+            sendAlertToUser(user.getId(), responseDto);
         }
 
         log.info("[이슈 생성 알림] 서비스 처리 완료");
     }
-
 
     @Override
     public void createDevopsAlert(AlertSendRequestDto requestDto) {
@@ -376,32 +427,4 @@ public class AlertServiceImpl implements AlertService {
 
         log.info("[DevOps 알림 생성] 서비스 처리 완료");
     }
-
-    /*
-    @Override
-    public void sendAlertToUsers(AlertSendRequestDto request) {
-        Alert alert = Alert.builder()
-                .title(request.getTitle())
-                .message(request.getMessage())
-                .kind(request.getKind())
-                .build();
-        alertRepository.save(alert);
-
-        List<User> users = userRepository.findAll();
-        for (User user : users) {
-            AlertStatus status = new AlertStatus(null, user, alert, false, null);
-            alertStatusRepository.save(status);
-        }
-    }
-    */
-
-    /*
-    @Override
-    public List<AlertResponseDto> getAlertsByKind(Long userId, AlertKind kind) {
-        return alertStatusRepository.findByUserIdAndAlertKind(userId, kind)
-                .stream()
-                .map(AlertResponseDto::from)
-                .collect(Collectors.toList());
-    }
-    */
 }

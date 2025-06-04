@@ -2,6 +2,7 @@ package kr.ssok.ssom.backend.domain.alert.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import kr.ssok.ssom.backend.domain.alert.dto.*;
 import kr.ssok.ssom.backend.domain.alert.service.AlertService;
@@ -19,12 +20,13 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
+
+@Tag(name = "Alert API", description = "알림 관련 API를 관리하는 컨트롤러")
 @RestController
 @RequestMapping("/api/alert")
 @RequiredArgsConstructor
 @Slf4j
 public class AlertController {
- // TODO class 에 swagger 적용
 
     private final AlertService alertService;
 
@@ -38,7 +40,7 @@ public class AlertController {
         return alertService.subscribe(userPrincipal.getEmployeeId(), lastEventId, response);
     }
 
-    @Operation(summary = "전체 알림 목록 조회", description = "전체 알림 목록을 조회합니다.")
+    @Operation(summary = "전체 알림 목록 조회", description = "개별 사용자의 전체 알림 목록을 조회합니다.")
     @GetMapping
     public BaseResponse<List<AlertResponseDto>> getAllAlerts(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         log.info("[전체 알림 목록 조회] 컨트롤러 진입");

@@ -15,8 +15,8 @@ import java.io.IOException;
 @Service
 public class FirebaseConfig {
 
-//    @Value("${firebase.config-path}")
-    private final String firebaseConfigPath = "classpath:firebase/firebase-adminsdk.json";
+    @Value("${firebase.config-path}")
+    private String firebaseConfigPath;
 
     @PostConstruct
     public void initialize() {

@@ -40,6 +40,9 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void registerUser(SignupRequestDto requestDto) {
+        // 디버깅용 로그 추가
+        log.info("회원가입 요청 - departmentCode: {}", requestDto.getDepartmentCode());
+        
         // 중복 가입 확인
         if (userRepository.existsByPhoneNumber(requestDto.getPhoneNumber())) {
             throw new BaseException(BaseResponseStatus.USER_ALREADY_EXISTS);

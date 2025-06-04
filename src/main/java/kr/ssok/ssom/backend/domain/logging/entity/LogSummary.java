@@ -1,7 +1,9 @@
 package kr.ssok.ssom.backend.domain.logging.entity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.Lob;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -19,4 +21,6 @@ public class LogSummary {
     private String fileLocation;
     private String functionLocation;
     private String solution;
+    @Lob
+    private String solutionDetail;
 }

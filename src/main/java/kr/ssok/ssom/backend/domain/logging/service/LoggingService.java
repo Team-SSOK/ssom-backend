@@ -1,8 +1,10 @@
 package kr.ssok.ssom.backend.domain.logging.service;
 
+import jakarta.servlet.http.HttpServletResponse;
 import kr.ssok.ssom.backend.domain.logging.dto.*;
 import kr.ssok.ssom.backend.global.dto.LogRequestDto;
 import kr.ssok.ssom.backend.global.dto.LogSummaryMessageDto;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.List;
@@ -11,7 +13,7 @@ public interface LoggingService {
 
     ServicesResponseDto getServices() throws IOException;
 
-    LogsResponseDto getLogs() throws Exception;
+    LogsResponseDto getLogs(String app, String level) throws Exception;
 
     LogSummaryMessageDto getLogInfo(String logId);
 
@@ -30,4 +32,6 @@ public interface LoggingService {
      * @return LLM API 요청용 로그 목록
      */
     List<LogRequestDto> convertToLlmRequestFormat(List<LogDto> logList);
+
+    SseEmitter subscribe(String username, String lastEventId, HttpServletResponse response);
 }

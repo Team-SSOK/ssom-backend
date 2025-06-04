@@ -42,22 +42,22 @@ public class LoggingController {
 
     // 로그 목록 조회
     @GetMapping
-    public ResponseEntity<BaseResponse<LogsResponseDto>> getLogs() throws Exception {
+    public ResponseEntity<BaseResponse<LogsResponseDto>> getLogs(@RequestParam(required = false) String app,
+                                                                 @RequestParam(required = false) String level) throws Exception {
 
-        log.info("로그 목록 조회 요청");
-        LogsResponseDto response = loggingService.getLogs();
+        log.info("로그 목록 조회 요청: app={}, level={}", app, level);
+        LogsResponseDto response = loggingService.getLogs(app, level);
 
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, response));
 
     }
 
-    // 로그 SSE 구독 (알림 서비스에 구현된 메서드 사용)
+    // 로그 SSE 구독
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(@Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal userPrincipal,
                                 @RequestHeader(value = "Last-Event-ID", required = false, defaultValue = "") String lastEventId,
                                 HttpServletResponse response) {
-
-        return alertService.subscribe(userPrincipal.getEmployeeId(), lastEventId, response);
+        return loggingService.subscribe(userPrincipal.getEmployeeId(), lastEventId, response);
     }
 
     // 로그 상세 조회 - 이전에 생성한 LLM 요약 반환

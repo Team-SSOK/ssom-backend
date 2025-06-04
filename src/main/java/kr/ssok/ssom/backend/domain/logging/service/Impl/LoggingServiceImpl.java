@@ -71,7 +71,7 @@ public class LoggingServiceImpl implements LoggingService {
             result.add(new ServiceDto(bucket.key(), bucket.docCount()));
         }
 
-        return (ServicesResponseDto) result;
+        return new ServicesResponseDto(result);
     }
 
     /**
@@ -95,8 +95,7 @@ public class LoggingServiceImpl implements LoggingService {
 
         SearchResponse<LogDataDto> response = openSearchClient.search(request, LogDataDto.class);
 
-
-        return (LogsResponseDto) response.hits().hits().stream()
+        List<LogDto> result = response.hits().hits().stream()
                 .map(hit -> {
                     LogDataDto source = hit.source();
                     LogDto dto = new LogDto();
@@ -110,6 +109,8 @@ public class LoggingServiceImpl implements LoggingService {
                     return dto;
                 })
                 .collect(Collectors.toList());
+
+        return new LogsResponseDto(result);
     }
 
     /**

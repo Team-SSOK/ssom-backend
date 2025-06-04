@@ -107,7 +107,7 @@ public class LoggingServiceImpl implements LoggingService {
                                 .includes("@timestamp", "level", "logger", "thread", "message", "app")
                         )
                 )
-                .size(1000) // 1000개 제한
+                .size(10000) // 1000개 제한
                 .build();
 
         SearchResponse<LogDataDto> response = openSearchClient.search(request, LogDataDto.class);
@@ -127,7 +127,17 @@ public class LoggingServiceImpl implements LoggingService {
                 })
                 .collect(Collectors.toList());
 
-        return new LogsResponseDto(result);
+        // 중복 제거: 연속된 같은 message만 하나만 남기기
+        List<LogDto> deduplicated = new ArrayList<>();
+        LogDto prev = null;
+        for (LogDto current : result) {
+            if (prev == null || !current.getMessage().equals(prev.getMessage())) {
+                deduplicated.add(current);
+            }
+            prev = current;
+        }
+
+        return new LogsResponseDto(deduplicated);
     }
 
     /**

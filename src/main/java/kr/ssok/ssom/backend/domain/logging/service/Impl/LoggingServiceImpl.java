@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.FieldValue;
+import org.opensearch.client.opensearch._types.SortOrder;
 import org.opensearch.client.opensearch._types.aggregations.StringTermsBucket;
 import org.opensearch.client.opensearch._types.query_dsl.BoolQuery;
 import org.opensearch.client.opensearch.core.MgetRequest;
@@ -102,6 +103,12 @@ public class LoggingServiceImpl implements LoggingService {
         SearchRequest request = new SearchRequest.Builder()
                 .index("ssok-app")
                 .query(q -> q.bool(boolQuery.build()))
+                .sort(s -> s
+                        .field(f -> f
+                                .field("@timestamp")
+                                .order(SortOrder.Desc)
+                        )
+                )
                 .source(s -> s
                         .filter(f -> f
                                 .includes("@timestamp", "level", "logger", "thread", "message", "app")

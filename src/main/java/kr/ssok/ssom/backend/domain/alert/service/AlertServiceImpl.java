@@ -110,11 +110,11 @@ public class AlertServiceImpl implements AlertService {
     }
 
     /*
-     * 알림 상태 변경
+     * 알림 개별 상태 변경
      * */
     @Override
     public void modifyAlertStatus(AlertModifyRequestDto request) {
-        log.info("[알림 상태 변경] 서비스 진입");
+        log.info("[알림 개별 상태 변경] 서비스 진입");
 
         AlertStatus status = alertStatusRepository.findById(request.getAlertStatusId())
                 .orElseThrow(() -> new RuntimeException("AlertStatus not found"));
@@ -123,6 +123,30 @@ public class AlertServiceImpl implements AlertService {
         } else {
             status.markAsUnread();
         }
+    }
+
+    /*
+     * 알림 개별 삭제
+     * */
+    @Override
+    public void deleteAlert(AlertModifyRequestDto request) {
+        log.info("[알림 개별 삭제] 서비스 진입");
+
+        // AlertStatus 조회
+        AlertStatus status = alertStatusRepository.findById(request.getAlertStatusId())
+                .orElseThrow(() -> new RuntimeException("AlertStatus not found"));
+
+        // AlertStatus 삭제
+        alertStatusRepository.delete(status);
+        log.info("[알림 개별 삭제] AlertStatus 삭제 완료");
+
+        // Alert 조회
+        Alert alert = status.getAlert();
+
+        // Alert 삭제
+        alertRepository.delete(alert);
+        log.info("[알림 개별 삭제] Alert 삭제 완료");
+
     }
     /******************************************************************************************************/
 

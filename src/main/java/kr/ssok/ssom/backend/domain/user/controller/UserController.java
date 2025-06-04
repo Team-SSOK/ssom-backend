@@ -23,7 +23,8 @@ public class UserController {
     // 회원가입
     @PostMapping("/signup")
     public ResponseEntity<BaseResponse<Void>> registerUser(
-            @RequestBody SignupRequestDto requestDto) {
+            @Valid @RequestBody SignupRequestDto requestDto) {
+        log.info("회원가입 요청 - 전달받은 departmentCode: {}", requestDto.getDepartmentCode());
         userService.registerUser(requestDto);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new BaseResponse<>(BaseResponseStatus.REGISTER_USER_SUCCESS));

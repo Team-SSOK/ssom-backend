@@ -5,12 +5,16 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ServicesResponseDto {
-    private List<ServiceDto> services;
+public class LogDataDto {
+    private String timestamp;
+
+    private String level;
+    private String logger;
+    private String thread;
+    private String message;
+    private String app;
 }

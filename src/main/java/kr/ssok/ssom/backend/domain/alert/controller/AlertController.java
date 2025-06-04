@@ -47,23 +47,33 @@ public class AlertController {
                 alertService.getAllAlertsForUser(userPrincipal.getEmployeeId()));
     }
 
-    @Operation(summary = "알림 상태 변경", description = "알림의 읽음 여부를 변경합니다.")
+    @Operation(summary = "알림 개별 상태 변경", description = "알림의 읽음 여부를 변경합니다.")
     @PatchMapping("/modify")
     public BaseResponse<Void> modifyAlertStatus(@RequestBody AlertModifyRequestDto request) {
-        log.info("[알림 상태 변경] 컨트롤러 진입");
+        log.info("[알림 개별 상태 변경] 컨트롤러 진입");
 
         alertService.modifyAlertStatus(request);
         return new BaseResponse<>(BaseResponseStatus.SUCCESS);
     }
 
+    @Operation(summary = "알림 개별 삭제", description = "알림을 삭제 처리합니다.")
+    @PatchMapping("/delete")
+    public BaseResponse<Void> deleteAlert(@RequestBody AlertModifyRequestDto request) {
+        log.info("[알림 개별 삭제] 컨트롤러 진입 : ID = {} ", request.getAlertStatusId());
+
+        alertService.deleteAlert(request);
+        return new BaseResponse<>(BaseResponseStatus.SUCCESS);
+    }
     /*********************************************************************************************************************/
     @Operation(summary = "그라파나 알림", description = "그라파나 알림 데이터를 받아 앱으로 전송합니다.")
     @PostMapping("/grafana")
-    public BaseResponse<List<AlertResponseDto>> sendGrafanaAlert(@RequestBody AlertGrafanaRequestDto alertGrafanaRequestDto) {
+    public ResponseEntity<BaseResponse<Void>> sendGrafanaAlert(@RequestBody AlertGrafanaRequestDto requestDto) {
         log.info("[그라파나 알림] 컨트롤러 진입");
 
-        List<AlertResponseDto> responses = alertService.createGrafanaAlert(alertGrafanaRequestDto);
-        return new BaseResponse<>(BaseResponseStatus.SUCCESS, responses);
+        alertService.createGrafanaAlert(requestDto);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
 
     @Operation(summary = "오픈서치 대시보드 알림", description = "오픈서치 대시보드 알림 데이터를 받아 앱으로 전송합니다.")
@@ -79,20 +89,24 @@ public class AlertController {
 
     @Operation(summary = "이슈 생성 알림", description = "이슈 생성 시 앱으로 알림을 전송합니다.")
     @PostMapping("/issue")
-    public BaseResponse<List<AlertResponseDto>> sendIssueAlert(@RequestBody AlertIssueRequestDto AlertIssueRequest) {
+    public ResponseEntity<BaseResponse<Void>> sendIssueAlert(@RequestBody AlertIssueRequestDto requestDto) {
         log.info("[이슈 생성 알림] 컨트롤러 진입");
 
-        List<AlertResponseDto> responses = alertService.createIssueAlert(AlertIssueRequest);
-        return new BaseResponse<>(BaseResponseStatus.SUCCESS, responses);
+        alertService.createIssueAlert(requestDto);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
 
-    /*
+
     @Operation(summary = "Jenkins 및 argoCD 알림", description = "Jenkins 및 argoCD 작업 완료 시 앱으로 알림을 전송합니다.")
     @PostMapping("/send")
-    public BaseResponse<List<AlertResponseDto>> sendDevopsAlert(@RequestBody AlertSendRequestDto alertSendRequest) {
+    public ResponseEntity<BaseResponse<Void>> sendDevopsAlert(@RequestBody AlertSendRequestDto requestDto) {
         log.info("[Jenkins 및 argoCD 알림] 컨트롤러 진입");
 
-        List<AlertResponseDto> responses = alertService.createDevopsAlert(alertSendRequest);
-        return new BaseResponse<>(BaseResponseStatus.SUCCESS, responses);
-    }*/
+        alertService.createDevopsAlert(requestDto);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
+    }
 }

@@ -1,4 +1,4 @@
-package kr.ssok.ssom.backend.global.dto;
+package kr.ssok.ssom.backend.domain.logging.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,8 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LogSummaryMessageDto {
-    private String summary;
-    private LogLocationDto location;
-    private String solution;
+public class ServiceDto {
+    private String serviceName;
+    private long count;
 }

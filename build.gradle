@@ -83,6 +83,9 @@ dependencies {
     // OpenFeign
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
 
+    // OpenSearch Java Client
+    implementation 'org.opensearch.client:opensearch-java:2.8.1'
+
 }
 
 tasks.named('test') {

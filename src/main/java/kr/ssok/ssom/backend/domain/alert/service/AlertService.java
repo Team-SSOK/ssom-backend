@@ -11,12 +11,13 @@ public interface AlertService {
     SseEmitter subscribe(String username, String lastEventId, HttpServletResponse response);
     List<AlertResponseDto> getAllAlertsForUser(String employeeId);
     void modifyAlertStatus(AlertModifyRequestDto request);
+    void deleteAlert(AlertModifyRequestDto request);
 
     void createAlert(AlertRequestDto request, AlertKind kind);
-    List<AlertResponseDto> createGrafanaAlert(AlertGrafanaRequestDto alertGrafanaRequestDto);
+    void createGrafanaAlert(AlertGrafanaRequestDto requestDto);
     void createOpensearchAlert(AlertOpensearchRequestDto requestDto);
-    List<AlertResponseDto> createIssueAlert(AlertIssueRequestDto alertIssueRequest);
-    //List<AlertResponseDto> createDevopsAlert(AlertSendRequestDto alertSendRequest);
+    void createIssueAlert(AlertIssueRequestDto requestDto);
+    void createDevopsAlert(AlertSendRequestDto requestDto);
 
     //void sendAlertToUsers(AlertSendRequestDto request);
     //List<AlertResponseDto> getAlertsByKind(Long userId, AlertKind kind);

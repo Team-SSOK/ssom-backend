@@ -144,12 +144,14 @@ public class LoggingServiceImpl implements LoggingService {
             prev = current;
         }
 
+
         return new LogsResponseDto(deduplicated);
     }
 
     /**
      * 로그 SSE 구독
      */
+    @Override
     public SseEmitter subscribe(String employeeId, String lastEventId, HttpServletResponse response){
         log.info("[로그 SSE 구독] 서비스 진입");
 

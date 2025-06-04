@@ -12,5 +12,5 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LlmApiRequestDto {
-    private List<LogRequestDto> logs;
+    private List<LogRequestDto> log;
 }

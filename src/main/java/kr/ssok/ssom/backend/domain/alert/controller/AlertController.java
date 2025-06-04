@@ -47,15 +47,23 @@ public class AlertController {
                 alertService.getAllAlertsForUser(userPrincipal.getEmployeeId()));
     }
 
-    @Operation(summary = "알림 상태 변경", description = "알림의 읽음 여부를 변경합니다.")
+    @Operation(summary = "알림 개별 상태 변경", description = "알림의 읽음 여부를 변경합니다.")
     @PatchMapping("/modify")
     public BaseResponse<Void> modifyAlertStatus(@RequestBody AlertModifyRequestDto request) {
-        log.info("[알림 상태 변경] 컨트롤러 진입");
+        log.info("[알림 개별 상태 변경] 컨트롤러 진입");
 
         alertService.modifyAlertStatus(request);
         return new BaseResponse<>(BaseResponseStatus.SUCCESS);
     }
 
+    @Operation(summary = "알림 개별 삭제", description = "알림을 삭제 처리합니다.")
+    @PatchMapping("/delete")
+    public BaseResponse<Void> deleteAlert(@RequestBody AlertModifyRequestDto request) {
+        log.info("[알림 개별 삭제] 컨트롤러 진입 : ID = {} ", request.getAlertStatusId());
+
+        alertService.deleteAlert(request);
+        return new BaseResponse<>(BaseResponseStatus.SUCCESS);
+    }
     /*********************************************************************************************************************/
     @Operation(summary = "그라파나 알림", description = "그라파나 알림 데이터를 받아 앱으로 전송합니다.")
     @PostMapping("/grafana")

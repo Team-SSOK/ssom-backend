@@ -85,6 +85,7 @@ dependencies {
 
     // OpenSearch Java Client
     implementation 'org.opensearch.client:opensearch-java:2.8.1'
+
 }
 
 tasks.named('test') {

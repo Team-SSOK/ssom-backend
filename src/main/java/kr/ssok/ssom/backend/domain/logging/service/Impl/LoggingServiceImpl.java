@@ -15,11 +15,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.aggregations.StringTermsBucket;
+import org.opensearch.client.opensearch._types.query_dsl.BoolQuery;
 import org.opensearch.client.opensearch.core.MgetRequest;
 import org.opensearch.client.opensearch.core.MgetResponse;
 import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -78,19 +80,34 @@ public class LoggingServiceImpl implements LoggingService {
      * 로그 목록 조회
      */
     @Override
-    public LogsResponseDto getLogs() throws Exception {
-        // 초기: 모든 서비스, 모든 레벨
+    public LogsResponseDto getLogs(String app, String level) throws Exception {
 
-        // 필터링 시: 조건에 맞는 서비스와 레벨만 조회
+        // 동적 bool 쿼리 빌더
+        BoolQuery.Builder boolQuery = new BoolQuery.Builder();
 
+        if (StringUtils.hasText(app)) {
+            boolQuery.must(m -> m.match(match -> match.field("app.keyword").query(FieldValue.of(app))));
+        }
+
+        if (StringUtils.hasText(level)) {
+            boolQuery.must(m -> m.match(match -> match.field("level").query(FieldValue.of(level))));
+        } else {
+            // level이 없으면 기본적으로 ERROR + WARN
+            boolQuery.must(m -> m.terms(t -> t.field("level.keyword").terms(
+                    ts -> ts.value(List.of(FieldValue.of("ERROR"), FieldValue.of("WARN")))
+            )));
+        }
+
+        // 요청
         SearchRequest request = new SearchRequest.Builder()
                 .index("ssok-app")
-                .query(q -> q.match(m -> m.field("level").query(FieldValue.of("ERROR | WARN"))))
+                .query(q -> q.bool(boolQuery.build()))
                 .source(s -> s
                         .filter(f -> f
                                 .includes("@timestamp", "level", "logger", "thread", "message", "app")
                         )
                 )
+                .size(1000) // 1000개 제한
                 .build();
 
         SearchResponse<LogDataDto> response = openSearchClient.search(request, LogDataDto.class);

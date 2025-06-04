@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class FcmMessageRequestDto {
-    private String title;   // 알림 제목 (예: "")
-    private String body;    // 알림 내용 (예: "")
+    private String title;   // 알림 제목 (예: "[ERROR] ssok-bank")
+    private String body;    // 알림 내용 (예: "uthentication error: Authorization header is missing or invalid")
     private String token;   // FCM 토큰
 }

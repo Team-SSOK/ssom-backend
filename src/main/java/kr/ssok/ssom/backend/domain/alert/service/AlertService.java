@@ -13,10 +13,14 @@ public interface AlertService {
     void modifyAlertStatus(AlertModifyRequestDto request);
     void deleteAlert(AlertModifyRequestDto request);
 
-    void createAlert(AlertRequestDto request, AlertKind kind);
     void createGrafanaAlert(AlertGrafanaRequestDto requestDto);
     void createOpensearchAlert(AlertOpensearchRequestDto requestDto);
     void createIssueAlert(AlertIssueRequestDto requestDto);
     void createDevopsAlert(AlertSendRequestDto requestDto);
+
+    void createAlert(AlertRequestDto request, AlertKind kind);
+    void sendAlertToUser(String employeeId, AlertResponseDto alertResponseDto);
+    void sendSseAlertToUser(String emitterId, AlertResponseDto alertResponseDto);
+    void sendFcmNotification(String employeeId, String title, String body);
 }
 

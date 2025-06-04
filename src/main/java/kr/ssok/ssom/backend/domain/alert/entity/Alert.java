@@ -24,6 +24,9 @@ public class Alert {
     @OneToMany(mappedBy = "alert", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AlertStatus> alertStatuses = new ArrayList<>();
 
+    //id
+    private String id;
+
     //제목
     private String title;
 

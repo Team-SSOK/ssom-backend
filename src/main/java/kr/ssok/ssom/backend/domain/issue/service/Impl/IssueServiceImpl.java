@@ -61,7 +61,7 @@ public class IssueServiceImpl implements IssueService {
             
             // 3. LLM API 요청 DTO 구성
             LlmApiRequestDto llmRequest = LlmApiRequestDto.builder()
-                    .logs(llmRequestLogs)
+                    .log(llmRequestLogs)
                     .build();
             
             // 4. LLM API 호출하여 Issue 초안 작성

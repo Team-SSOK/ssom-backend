@@ -11,7 +11,7 @@ public interface LoggingService {
 
     ServicesResponseDto getServices() throws IOException;
 
-    LogsResponseDto getLogs() throws Exception;
+    LogsResponseDto getLogs(String app, String level) throws Exception;
 
     LogSummaryMessageDto getLogInfo(String logId);
 

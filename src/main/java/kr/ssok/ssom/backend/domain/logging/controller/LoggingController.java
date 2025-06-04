@@ -42,10 +42,11 @@ public class LoggingController {
 
     // 로그 목록 조회
     @GetMapping
-    public ResponseEntity<BaseResponse<LogsResponseDto>> getLogs() throws Exception {
+    public ResponseEntity<BaseResponse<LogsResponseDto>> getLogs(@RequestParam(required = false) String app,
+                                                                 @RequestParam(required = false) String level) throws Exception {
 
-        log.info("로그 목록 조회 요청");
-        LogsResponseDto response = loggingService.getLogs();
+        log.info("로그 목록 조회 요청: app={}, level={}", app, level);
+        LogsResponseDto response = loggingService.getLogs(app, level);
 
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, response));
 

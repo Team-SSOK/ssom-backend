@@ -21,6 +21,6 @@ public interface AlertService {
     void createAlert(AlertRequestDto request, AlertKind kind);
     void sendAlertToUser(String employeeId, AlertResponseDto alertResponseDto);
     void sendSseAlertToUser(String emitterId, AlertResponseDto alertResponseDto);
-    void sendFcmNotification(String employeeId, String title, String body);
+    void sendFcmNotification(String employeeId, AlertResponseDto alertResponseDto);
 }
 

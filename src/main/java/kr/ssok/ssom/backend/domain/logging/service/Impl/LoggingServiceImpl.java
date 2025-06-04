@@ -191,6 +191,7 @@ public class LoggingServiceImpl implements LoggingService {
                 .summary(summaryEntity.getSummary())
                 .location(locationDto)
                 .solution(summaryEntity.getSolution())
+                .solutionDetail(summaryEntity.getSolutionDetail())
                 .build();
 
         return summaryDto;
@@ -211,7 +212,7 @@ public class LoggingServiceImpl implements LoggingService {
                 .app(request.getApp())
                 .build();
         LlmApiRequestDto llmRequestDto = LlmApiRequestDto.builder()
-                .logs(List.of(requestDto))
+                .log(List.of(requestDto))
                 .build();
         LlmApiResponseDto<LogSummaryResponseDto> llmResponseDto = llmServiceClient.summarizeLog(llmRequestDto);
 
@@ -225,6 +226,7 @@ public class LoggingServiceImpl implements LoggingService {
                 .fileLocation(summaryDto.getLocation().getFile())
                 .functionLocation(summaryDto.getLocation().getFunction())
                 .solution(summaryDto.getSolution())
+                .solutionDetail(summaryDto.getSolutionDetail())
                 .build();
         logSummaryRepository.save(summaryEntity);
 

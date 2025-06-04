@@ -10,9 +10,9 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class OpenSearchConfig {
 
-    private static final String SCHEME = "https";
-    private static final String HOST = "os.ssok.kr";
-    private static final int PORT = 443;
+    private static final String SCHEME = "http";
+    private static final String HOST = "kudong.kr";
+    private static final int PORT = 55034;
 
     /**
      * OpenSearchClient Bean 설정

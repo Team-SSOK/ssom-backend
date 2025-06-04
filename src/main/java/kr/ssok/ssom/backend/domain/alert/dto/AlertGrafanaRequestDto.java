@@ -4,12 +4,10 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Builder
 public class AlertGrafanaRequestDto {
-    private String app;
-    private String level;
-    private String message;
-    private LocalDateTime timestamp;
+    private List<AlertRequestDto> alerts;
 }

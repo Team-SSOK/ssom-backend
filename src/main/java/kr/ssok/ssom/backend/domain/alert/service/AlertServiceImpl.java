@@ -251,21 +251,41 @@ public class AlertServiceImpl implements AlertService {
         log.info("[JSON Parsing] 진행 중 ...");
 
         try {
-            // 전처리: {{ → {, }}, → }, 마지막 쉼표 제거 후 배열 감싸기
-            String fixed = raw
-                    .replaceAll("\\{\\s*\\{", "{")
-                    .replaceAll("}\\s*},?", "},")
-                    .trim();
+            // 1. 중첩된 중괄호 제거: "{{" → "{", "}}" → "}"
+            String fixed = raw.replaceAll("\\{\\s*\\{", "\\{")
+                    .replaceAll("}}", "}");
 
+            // 2. 마지막 쉼표 제거
+            fixed = fixed.trim();
             if (fixed.endsWith(",")) {
                 fixed = fixed.substring(0, fixed.length() - 1);
             }
-            fixed = "[" + fixed + "]";
+
+            // 3. JSON 배열 형태로 감싸기
+            // 여러 개의 객체가 있을 경우 각 객체를 `}, {` 로 구분하므로
+            // 이걸 이용해서 안전하게 나누고 다시 배열화
+            if (!fixed.startsWith("[") && !fixed.endsWith("]")) {
+                // 객체들 추출
+                String[] objects = fixed.split("},\\s*\\{");
+                StringBuilder sb = new StringBuilder();
+                sb.append("[");
+                for (int i = 0; i < objects.length; i++) {
+                    String obj = objects[i].trim();
+
+                    // 맨 앞/뒤 중괄호 정리
+                    if (!obj.startsWith("{")) sb.append("{");
+                    sb.append(obj);
+                    if (!obj.endsWith("}")) sb.append("}");
+
+                    if (i != objects.length - 1) sb.append(",");
+                }
+                sb.append("]");
+                fixed = sb.toString();
+            }
 
             return objectMapper.readValue(fixed, new TypeReference<>() {});
         } catch (Exception e) {
-
-            log.error("[JSON Parsing] JSON Parsing 실패");
+            log.error("[JSON Parsing] JSON Parsing 실패", e);
             throw new RuntimeException("JSON Parsing 실패", e);
         }
     }

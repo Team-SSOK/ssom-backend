@@ -34,7 +34,7 @@ public class AlertResponseDto {
                 .kind(alert.getKind().getValue())       // 예 : "OPENSEARCH"
                 .isRead(status.isRead())                // 예 : false
                 .timestamp(alert.getTimestamp())        // 예 : "2025-05-30T07:24:06.396205638+00:00" -> 발생시간
-                .createdAt(alert.getCreatedAt())        // 예 : "2025-05-30T07:24:06.396205638+00:00" -> status 저장시간
+                .createdAt(alert.getCreatedAt())        // 예 : "2025-05-30T07:24:06.396205638+00:00" -> alert 저장시간
                 .employeeId(status.getUser().getId())   // 예 : (사원번호)
                 .build();
     }

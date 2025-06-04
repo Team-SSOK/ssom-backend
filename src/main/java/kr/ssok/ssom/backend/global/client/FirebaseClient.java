@@ -21,16 +21,22 @@ public class FirebaseClient {
      */
     public void sendNotification(FcmMessageRequestDto request) {
         try {
-            Message message = Message.builder()
+            Message.Builder messageBuilder = Message.builder()
                     .setToken(request.getToken())
                     .setNotification(Notification.builder()
                             .setTitle(request.getTitle())
                             .setBody(request.getBody())
-                            .build())
-                    .build();
+                            .build());
 
+            // data 필드가 있으면 추가
+            if (request.getData() != null && !request.getData().isEmpty()) {
+                messageBuilder.putAllData(request.getData());
+            }
+
+            Message message = messageBuilder.build();
             String response = FirebaseMessaging.getInstance().send(message);
             log.info("푸시 알림 전송 성공: {}", response);
+
         } catch (Exception e) {
             log.error("푸시 알림 전송 실패: {}", e.getMessage());
         }

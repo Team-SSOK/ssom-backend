@@ -24,6 +24,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -253,6 +254,7 @@ public class AlertServiceImpl implements AlertService {
 
         // 1. Alert 저장
         Alert alert = Alert.builder()
+                .id(AlertKind.ISSUE + "_noNeedId")
                 .title("[ISSUE] 이슈 공유")
                 .message("새로운 이슈가 공유되었습니다.")
                 .kind(AlertKind.ISSUE)
@@ -266,7 +268,7 @@ public class AlertServiceImpl implements AlertService {
             targetUsers = userRepository.findAllById(requestDto.getSharedEmployeeIds());
         }
 
-        // 3. AlertStatus 생성 및 SSE 알림 전송
+        // 3. AlertStatus 생성 및 알림 전송
         for (User user : targetUsers) {
             AlertStatus alertStatus = AlertStatus.builder()
                     .alert(alert)
@@ -399,7 +401,7 @@ public class AlertServiceImpl implements AlertService {
             sendSseAlertToUser(employeeId, responseDto);
         } else {
             log.info("[앱 외부 감지, FCM 전송] employeeId={}", employeeId);
-            sendFcmNotification(employeeId, responseDto.getTitle(), responseDto.getMessage());
+            sendFcmNotification(employeeId, responseDto);
         }
     }
 
@@ -425,7 +427,7 @@ public class AlertServiceImpl implements AlertService {
             } catch (IOException e) {
                 emitters.remove(emitterId);
                 log.error("[SSE 전송 실패, FCM으로 전환] employeeId={}", emitterId, e);
-                sendFcmNotification(emitterId, responseDto.getTitle(), responseDto.getMessage());
+                sendFcmNotification(emitterId, responseDto);
             }
         }
         log.info("[알림 SSE 전송] 처리 완료.");
@@ -435,10 +437,8 @@ public class AlertServiceImpl implements AlertService {
      * 알림 FCM 구현
      *
      * @param employeeId
-     * @param title
-     * @param body
      */
-    public void sendFcmNotification(String employeeId, String title, String body) {
+    public void sendFcmNotification(String employeeId, AlertResponseDto responseDto) {
         try {
             String token = redisTemplate.opsForValue().get("userfcm:" + employeeId);
 
@@ -447,11 +447,22 @@ public class AlertServiceImpl implements AlertService {
                 return;
             }
 
+            Map<String, String> data = new HashMap<>();
+            data.put("alertId", String.valueOf(responseDto.getAlertId()));
+            data.put("id", responseDto.getId());
+//            data.put("title", responseDto.getTitle());
+//            data.put("message", responseDto.getMessage());
+            data.put("kind", responseDto.getKind());
+            data.put("isRead", String.valueOf(responseDto.isRead()));
+            data.put("timestamp", responseDto.getTimestamp().toString());
+            data.put("createdAt", responseDto.getCreatedAt().toString());
+
             // FCM 메시지 요청 생성
             FcmMessageRequestDto request = FcmMessageRequestDto.builder()
-                    .title(title)
-                    .body(body)
+                    .title(responseDto.getTitle())
+                    .body(responseDto.getMessage())
                     .token(token)
+                    .data(data)
                     .build();
 
             // FCM 클라이언트로 메시지 전송

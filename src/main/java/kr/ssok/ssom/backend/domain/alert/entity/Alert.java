@@ -34,6 +34,10 @@ public class Alert {
     @Enumerated(EnumType.STRING)
     private AlertKind kind;
 
+    //발생 시간
+    private String timestamp;
+
+    //발송 시간
     @CreationTimestamp
     private LocalDateTime createdAt;
 }

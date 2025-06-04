@@ -162,6 +162,7 @@ public class AlertServiceImpl implements AlertService {
                 .title("[" + request.getLevel() + "] " + request.getApp())  // [ERROR] ssok-bank
                 .message(request.getMessage())                              // Authentication error: Authorization header is missing or invalid
                 .kind(kind)
+                .timestamp(request.getTimestamp())
                 .build();
         alertRepository.save(alert);
 
@@ -220,10 +221,21 @@ public class AlertServiceImpl implements AlertService {
     }
 
     @Override
-    public void createGrafanaAlert(AlertGrafanaRequestDto alertGrafanaRequestDto) {
+    public void createGrafanaAlert(AlertGrafanaRequestDto requestDto) {
         log.info("[그라파나 알림] 서비스 진입");
 
-        log.info("[그라파나 알림] 서비스 처리 완료");
+        List<AlertRequestDto> alertList = requestDto.getAlerts();
+
+        if (alertList == null || alertList.isEmpty()) {
+            log.warn("[그라파나 알림] 전달받은 알림 리스트가 비어있습니다.");
+            return;
+        }
+
+        for (AlertRequestDto alertRequest : alertList) {
+            createAlert(alertRequest, AlertKind.GRAFANA);
+        }
+
+        log.info("[그라파나 알림] 전체 {}건 서비스 처리 완료", alertList.size());
     }
 
     @Override
@@ -232,7 +244,12 @@ public class AlertServiceImpl implements AlertService {
         
         String rawJson = requestDto.getRequest();
         List<AlertRequestDto> alerts = parseRawStringToDtoList(rawJson);
-        
+
+        if (alerts == null || alerts.isEmpty()) {
+            log.warn("[오픈서치 대시보드 알림] 전달받은 알림 리스트가 비어있습니다.");
+            return;
+        }
+
         for (AlertRequestDto alert : alerts) {
             AlertRequestDto alertRequest = AlertRequestDto.builder()
                     .id(alert.getId())

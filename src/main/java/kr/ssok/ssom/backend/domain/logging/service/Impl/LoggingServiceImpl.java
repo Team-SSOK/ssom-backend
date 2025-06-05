@@ -318,7 +318,11 @@ public class LoggingServiceImpl implements LoggingService {
     public LogSummaryMessageDto getLogInfo(String logId) {
 
         // 로그 아이디로 OpenSearch에 로그 조회
-        LogDto logDto = getLogsByIds(Collections.singletonList(logId)).get(0);
+        List<LogDto> logsByIds = getLogsByIds(Collections.singletonList(logId));
+        if (logsByIds.isEmpty()) {
+            throw new BaseException(BaseResponseStatus.LOG_NOT_FOUND);
+        }
+        LogDto logDto = logsByIds.get(0);
 
         // 로그 메시지로 DB 조회
         String logMessage = logDto.getMessage();

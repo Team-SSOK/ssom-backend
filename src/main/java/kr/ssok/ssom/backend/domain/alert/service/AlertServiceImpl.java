@@ -438,7 +438,7 @@ public class AlertServiceImpl implements AlertService {
      * @param requestDto : Json, 단건
      */
     @Override
-    public void createDevopsAlert(AlertSendRequestDto requestDto) {
+    public void createDevopsAlert(AlertDevopsRequestDto requestDto) {
         log.info("[Jenkins 및 ArgoCD 알림 생성] 서비스 진입 : requestDto = {}", requestDto);
 
         if (requestDto == null || requestDto.getApp() == null || requestDto.getApp().trim().isEmpty()) {

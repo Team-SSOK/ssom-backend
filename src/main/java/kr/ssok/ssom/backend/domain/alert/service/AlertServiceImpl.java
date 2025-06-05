@@ -509,10 +509,11 @@ public class AlertServiceImpl implements AlertService {
                     .filter(user -> {
                         Department dept = user.getDepartment();
                         String app = request.getApp();
+                        String lowerApp = app != null ? app.toLowerCase() : "";
 
                         if (dept == Department.OPERATION || dept == Department.EXTERNAL) return true;
-                        if (dept == Department.CORE_BANK) return "ssok-bank".equalsIgnoreCase(app);
-                        if (dept == Department.CHANNEL) return !"ssok-bank".equalsIgnoreCase(app);
+                        if (dept == Department.CORE_BANK) return lowerApp.contains("ssok-bank");
+                        if (dept == Department.CHANNEL) return !lowerApp.contains("ssok-bank");
 
                         // 기본적으로는 받지 않음
                         return false;

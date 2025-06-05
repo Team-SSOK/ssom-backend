@@ -12,7 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LlmApiResponseDto<T> {
-    private boolean isSuccess;
+    private Boolean isSuccess;
     private String code;
     private String message;
     private List<T> result;

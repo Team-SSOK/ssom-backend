@@ -26,10 +26,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -218,8 +215,12 @@ public class LoggingServiceImpl implements LoggingService {
     @Override
     public LogSummaryMessageDto getLogInfo(String logId) {
 
-        // DB에 로그 아이디로 조회
-        Optional<LogSummary> summaryOpt = logSummaryRepository.findByLogId(logId);
+        // 로그 아이디로 OpenSearch에 로그 조회
+        LogDto logDto = getLogsByIds(Collections.singletonList(logId)).get(0);
+
+        // 로그 메시지로 DB 조회
+        String logMessage = logDto.getMessage();
+        Optional<LogSummary> summaryOpt = logSummaryRepository.findByLogMessage(logMessage);
 
         // 없을 시 아무것도 반환하지 않음
         if (summaryOpt.isEmpty()) {
@@ -275,6 +276,7 @@ public class LoggingServiceImpl implements LoggingService {
         try {
             LogSummary summaryEntity = LogSummary.builder()
                     .logId(request.getLogId())
+                    .logMessage(request.getMessage())
                     .summary(summaryDto.getSummary())
                     .fileLocation(summaryDto.getLocation().getFile())
                     .functionLocation(summaryDto.getLocation().getFunction())

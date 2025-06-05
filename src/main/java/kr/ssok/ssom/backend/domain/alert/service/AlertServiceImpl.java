@@ -409,7 +409,7 @@ public class AlertServiceImpl implements AlertService {
     }
 
     /**
-     * Jenkins 및 ArgoCD 알림 처리
+     * Devops (Jenkins 및 ArgoCD) 알림 처리
      *      1. app 에서 alertKind와 appName에 대해 parsing
      *      2. 공통 포맷에 담기
      *      3. createAlert 전송
@@ -418,17 +418,17 @@ public class AlertServiceImpl implements AlertService {
      */
     @Override
     public void createDevopsAlert(AlertDevopsRequestDto requestDto) {
-        log.info("[Jenkins 및 ArgoCD 알림 생성] 서비스 진입 : requestDto = {}", requestDto);
+        log.info("[Devops 알림 생성] 서비스 진입 : requestDto.getApp() = {}", requestDto.getApp());
 
         if (requestDto == null || requestDto.getApp() == null || requestDto.getApp().trim().isEmpty()) {
-            log.error("[Jenkins 및 ArgoCD 알림 생성] requestDto 또는 app 필드가 null 또는 빈 값입니다.");
+            log.error("[Devops 알림 생성] requestDto 또는 app 필드가 null 또는 빈 값입니다.");
             throw new BaseException(BaseResponseStatus.INVALID_REQUEST);
         }
 
         // 1. app에서 alertKind와 appName 파싱
         String[] appParts = requestDto.getApp().split("_");
         if (appParts.length != 2) {
-            log.error("[Jenkins 및 ArgoCD 알림 생성] 잘못된 app 형식입니다. 예: jenkins_ssok-bank, app={}", requestDto.getApp());
+            log.error("[Devops 알림 생성] 잘못된 app 형식입니다. 예: jenkins_ssok-bank, app={}", requestDto.getApp());
             throw new BaseException(BaseResponseStatus.INVALID_REQUEST);
         }
 
@@ -449,14 +449,14 @@ public class AlertServiceImpl implements AlertService {
             createAlert(alertRequest, devopsKind);
 
         } catch (IllegalArgumentException e) {
-            log.error("[Jenkins 및 ArgoCD 알림 생성] 지원하지 않는 AlertKind입니다: {}", kindStr, e);
+            log.error("[Devops 알림 생성] 지원하지 않는 AlertKind입니다: {}", kindStr, e);
             throw new BaseException(BaseResponseStatus.UNSUPPORTED_ALERT_KIND);
         } catch (Exception e) {
-            log.error("[Jenkins 및 Ar고CD 알림 생성] 알림 생성 중 예외 발생", e);
+            log.error("[Devops 알림 생성] 알림 생성 중 예외 발생", e);
             throw new BaseException(BaseResponseStatus.ALERT_CREATE_FAILED);
         }
 
-        log.info("[Jenkins 및 ArgoCD 알림 생성] 서비스 처리 완료");
+        log.info("[Devops 알림 생성] 서비스 처리 완료");
     }
 
     /**

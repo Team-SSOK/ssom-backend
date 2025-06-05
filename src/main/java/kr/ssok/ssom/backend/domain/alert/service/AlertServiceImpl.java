@@ -280,20 +280,19 @@ public class AlertServiceImpl implements AlertService {
      *      1. String으로 받은 데이터 Json으로 parsing하여 공통 포맷에 담기
      *      2. createAlert 전송
      *
-     * @param requestDto : String, 리스트
+     * @param requestStr : String, 리스트
      */
     @Override
-    public void createOpensearchAlert(AlertOpensearchRequestDto requestDto) {
-        log.info("[오픈서치 대시보드 알림] 서비스 진입 : requestDto = {}", requestDto);
+    public void createOpensearchAlert(String requestStr) {
+        log.info("[오픈서치 대시보드 알림] 서비스 진입 : requestStr = {}", requestStr);
 
         try {
-            if (requestDto == null || requestDto.getRequest() == null || requestDto.getRequest().isBlank()) {
+            if (requestStr == null || requestStr.isEmpty()) {
                 log.warn("[오픈서치 대시보드 알림] 전달받은 원본 데이터가 비어있습니다.");
                 return;
             }
 
-            String rawJson = requestDto.getRequest();
-            List<AlertRequestDto> alertList = parseRawStringToDtoList(rawJson);
+            List<AlertRequestDto> alertList = parseRawStringToDtoList(requestStr);
 
             if (alertList == null || alertList.isEmpty()) {
                 log.warn("[오픈서치 대시보드 알림] Json 파싱 결과 알림 리스트가 비어있습니다.");
@@ -329,39 +328,17 @@ public class AlertServiceImpl implements AlertService {
                 throw new BaseException(BaseResponseStatus.PARSING_ERROR);
             }
 
-            // 1. 중첩된 중괄호 제거: "{{" → "{", "}}" → "}"
-            String fixed = raw.replaceAll("\\{\\s*\\{", "\\{")
-                    .replaceAll("}}", "}");
+            // 공백 및 개행 제거
+            String fixed = raw.trim();
+            fixed = fixed.replaceAll(",\\s*]", "]");
 
-            // 2. 마지막 쉼표 제거
-            fixed = fixed.trim();
-            if (fixed.endsWith(",")) {
-                fixed = fixed.substring(0, fixed.length() - 1);
+            if (!fixed.trim().startsWith("[")) {
+                log.warn("[JSON Parsing] 전달받은 원본 문자열의 형식이 상이합니다.");
+                throw new BaseException(BaseResponseStatus.PARSING_ERROR);
             }
 
-            // 3. JSON 배열 형태로 감싸기
-            // 여러 개의 객체가 있을 경우 각 객체를 `}, {` 로 구분하므로
-            // 이걸 이용해서 안전하게 나누고 다시 배열화
-            if (!fixed.startsWith("[") && !fixed.endsWith("]")) {
-                // 객체들 추출
-                String[] objects = fixed.split("},\\s*\\{");
-                StringBuilder sb = new StringBuilder();
-                sb.append("[");
-                for (int i = 0; i < objects.length; i++) {
-                    String obj = objects[i].trim();
+            return objectMapper.readValue(fixed, new TypeReference<List<AlertRequestDto>>() {});
 
-                    // 맨 앞/뒤 중괄호 정리
-                    if (!obj.startsWith("{")) sb.append("{");
-                    sb.append(obj);
-                    if (!obj.endsWith("}")) sb.append("}");
-
-                    if (i != objects.length - 1) sb.append(",");
-                }
-                sb.append("]");
-                fixed = sb.toString();
-            }
-
-            return objectMapper.readValue(fixed, new TypeReference<>() {});
         } catch (BaseException e) {
             throw e;
         } catch (Exception e) {

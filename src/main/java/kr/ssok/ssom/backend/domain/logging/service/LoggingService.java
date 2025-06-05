@@ -6,14 +6,13 @@ import kr.ssok.ssom.backend.global.dto.LogRequestDto;
 import kr.ssok.ssom.backend.global.dto.LogSummaryMessageDto;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
 import java.util.List;
 
 public interface LoggingService {
 
-    ServicesResponseDto getServices() throws IOException;
+    ServicesResponseDto getServices();
 
-    LogsResponseDto getLogs(String app, String level) throws Exception;
+    LogsResponseDto getLogs(String app, String level);
 
     LogSummaryMessageDto getLogInfo(String logId);
 
@@ -24,7 +23,7 @@ public interface LoggingService {
      * @param logIds 로그 ID 목록
      * @return 로그 데이터 목록
      */
-    List<LogDto> getLogsByIds(List<String> logIds) throws Exception ;
+    List<LogDto> getLogsByIds(List<String> logIds);
     
     /**
      * 로그 데이터를 LLM API 요청 형식으로 변환

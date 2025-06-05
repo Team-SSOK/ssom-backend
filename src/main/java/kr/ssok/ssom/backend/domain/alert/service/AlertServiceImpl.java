@@ -283,25 +283,26 @@ public class AlertServiceImpl implements AlertService {
      * @param requestStr : String, 리스트
      */
     @Override
-    public void createOpensearchAlert(String requestStr) {
-        log.info("[오픈서치 대시보드 알림] 서비스 진입 : requestStr = {}", requestStr);
+    public void createOpensearchAlert(List<AlertOpensearchRequestDto> requestList) {
+        log.info("[오픈서치 대시보드 알림] 서비스 진입 : requestStr = {}", requestList);
 
         try {
-            if (requestStr == null || requestStr.isEmpty()) {
+            if (requestList == null || requestList.isEmpty()) {
                 log.warn("[오픈서치 대시보드 알림] 전달받은 원본 데이터가 비어있습니다.");
                 return;
             }
-
+/*
             List<AlertRequestDto> alertList = parseRawStringToDtoList(requestStr);
 
             if (alertList == null || alertList.isEmpty()) {
                 log.warn("[오픈서치 대시보드 알림] Json 파싱 결과 알림 리스트가 비어있습니다.");
                 throw new BaseException(BaseResponseStatus.PARSING_ERROR);
-            }
+            }*/
 
-            for (AlertRequestDto alertRequest : alertList) {
+            for (AlertOpensearchRequestDto alertRequest : requestList) {
                 try {
-                    createAlert(alertRequest, AlertKind.OPENSEARCH);
+                    AlertRequestDto requestDto = convertToCommonAlertDto(alertRequest);
+                    createAlert(requestDto, AlertKind.OPENSEARCH);
                 } catch (BaseException be) {
                     log.error("[오픈서치 대시보드 알림] 개별 알림 처리 실패 : alertRequest = {}, error = {}", alertRequest, be.getMessage());
                 } catch (Exception e) {
@@ -309,7 +310,7 @@ public class AlertServiceImpl implements AlertService {
                 }
             }
 
-            log.info("[오픈서치 대시보드 알림] 전체 {}건 서비스 처리 완료", alertList.size());
+            log.info("[오픈서치 대시보드 알림] 전체 {}건 서비스 처리 완료", requestList.size());
 
         } catch (BaseException e) {
             throw e;
@@ -317,6 +318,20 @@ public class AlertServiceImpl implements AlertService {
             log.error("[오픈서치 대시보드 알림] 전체 처리 중 예외 발생 - error = {}", e.getMessage(), e);
             throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private AlertRequestDto convertToCommonAlertDto(AlertOpensearchRequestDto alertRequest) {
+        if (alertRequest == null) {
+            return null;
+        }
+
+        AlertRequestDto dto = new AlertRequestDto();
+        dto.setId(alertRequest.getId());
+        dto.setLevel(alertRequest.getLevel());
+        dto.setApp(alertRequest.getApp());
+        dto.setTimestamp(alertRequest.getTimestamp());
+        dto.setMessage(alertRequest.getMessage());
+        return dto;
     }
 
     private List<AlertRequestDto> parseRawStringToDtoList(String raw) {

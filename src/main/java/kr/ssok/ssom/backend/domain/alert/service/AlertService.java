@@ -14,7 +14,7 @@ public interface AlertService {
     void deleteAlert(AlertModifyRequestDto request);
 
     void createGrafanaAlert(AlertGrafanaRequestDto requestDto);
-    void createOpensearchAlert(String requestStr);
+    void createOpensearchAlert(List<AlertOpensearchRequestDto> requestList);
     void createIssueAlert(AlertIssueRequestDto requestDto);
     void createDevopsAlert(AlertDevopsRequestDto requestDto);
 

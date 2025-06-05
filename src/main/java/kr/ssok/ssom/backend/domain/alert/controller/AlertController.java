@@ -80,10 +80,10 @@ public class AlertController {
 
     @Operation(summary = "오픈서치 대시보드 알림", description = "오픈서치 대시보드 알림 데이터를 받아 앱으로 전송합니다.")
     @PostMapping("/opensearch")
-    public ResponseEntity<BaseResponse<Void>> sendOpensearchAlert(@RequestBody String requestStr) {
+    public ResponseEntity<BaseResponse<Void>> sendOpensearchAlert(@RequestBody List<AlertOpensearchRequestDto> requestList) {
         log.info("[오픈서치 대시보드 알림] 컨트롤러 진입");
 
-        alertService.createOpensearchAlert(requestStr);
+        alertService.createOpensearchAlert(requestList);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));

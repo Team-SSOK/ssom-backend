@@ -332,7 +332,12 @@ public class AlertServiceImpl implements AlertService {
             String fixed = raw.trim();
             fixed = fixed.replaceAll(",\\s*]", "]");
 
-            return objectMapper.readValue(fixed, new TypeReference<>() {});
+            if (!fixed.trim().startsWith("[")) {
+                log.warn("[JSON Parsing] 전달받은 원본 문자열의 형식이 상이합니다.");
+                throw new BaseException(BaseResponseStatus.PARSING_ERROR);
+            }
+
+            return objectMapper.readValue(fixed, new TypeReference<List<AlertRequestDto>>() {});
 
         } catch (BaseException e) {
             throw e;

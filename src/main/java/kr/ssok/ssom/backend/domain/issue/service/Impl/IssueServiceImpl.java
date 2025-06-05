@@ -74,7 +74,7 @@ public class IssueServiceImpl implements IssueService {
             
             // 5. LLM API 응답 검증
             if (llmResponse.getResult() == null || llmResponse.getResult().isEmpty()) {
-                log.error("LLM API 응답 실패 - Success: {}, Message: {}", llmResponse.isSuccess(), llmResponse.getMessage());
+                log.error("LLM API 응답 실패 - Success: {}, Message: {}", llmResponse.getIsSuccess(), llmResponse.getMessage());
                 throw new BaseException(BaseResponseStatus.LLM_API_ERROR);
             }
             

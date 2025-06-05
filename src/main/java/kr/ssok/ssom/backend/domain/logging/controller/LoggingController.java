@@ -11,6 +11,7 @@ import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.web.bind.annotation.AuthenticationPrincipal;
@@ -24,7 +25,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class LoggingController {
 
     private final LoggingService loggingService;
-    private final AlertService alertService;
 
     // 서비스 목록 조회
     @GetMapping("/services")
@@ -49,12 +49,24 @@ public class LoggingController {
 
     }
 
+    // 오픈서치에서 보내주는 실시간 로그
+    @PostMapping("/opensearch")
+    public ResponseEntity<BaseResponse<Void>> sendOpensearchLogging(@RequestBody String requestStr) {
+        log.info("[오픈서치 대시보드 알림] 컨트롤러 진입");
+
+        loggingService.createOpensearchAlert(requestStr);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
+    }
+
     // 로그 SSE 구독
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(@Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal userPrincipal,
-                                @RequestHeader(value = "Last-Event-ID", required = false, defaultValue = "") String lastEventId,
+                                @RequestParam(value = "app", required = false) String appFilter,
+                                @RequestParam(value = "level", required = false) String levelFilter,
                                 HttpServletResponse response) {
-        return loggingService.subscribe(userPrincipal.getEmployeeId(), lastEventId, response);
+        return loggingService.subscribe(userPrincipal.getEmployeeId(), appFilter, levelFilter, response);
     }
 
     // 로그 상세 조회 - 이전에 생성한 LLM 요약 반환

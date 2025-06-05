@@ -16,6 +16,6 @@ import java.util.List;
 @AllArgsConstructor
 public class AlertIssueRequestDto {
     // TODO ISSUE 담당자 분과 협의하여 수정
-    private List<String> sharedEmployeeIds; // 이슈 공유자들
+    private List<String> assigneeGithubIds; // 이슈 공유자들
     private LocalDateTime timestamp; //이슈 생성 완료 시간
 }

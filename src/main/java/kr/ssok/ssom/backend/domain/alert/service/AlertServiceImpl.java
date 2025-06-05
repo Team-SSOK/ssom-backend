@@ -393,10 +393,12 @@ public class AlertServiceImpl implements AlertService {
 
             // 2. 알림 대상자 조회
             List<User> targetUsers = new ArrayList<>();
-            List<String> sharedIds = requestDto.getSharedEmployeeIds();
+            //List<String> sharedIds = requestDto.getSharedEmployeeIds();
+            List<String> sharedIds = requestDto.getAssigneeGithubIds();
 
             if (sharedIds != null && !sharedIds.isEmpty()) {
-                targetUsers = userRepository.findAllById(sharedIds);
+                //targetUsers = userRepository.findAllById(sharedIds);
+                targetUsers = userRepository.findAllByGithubIdIn(sharedIds);
 
                 if (targetUsers.isEmpty()) {
                     log.warn("[이슈 생성 알림] 공유 대상자가 존재하지 않음: {}", sharedIds);

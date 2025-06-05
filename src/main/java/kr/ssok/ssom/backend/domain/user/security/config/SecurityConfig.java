@@ -45,7 +45,13 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/error",
             "/actuator/health/readiness",
-            "/actuator/health/liveness"
+            "/actuator/health/liveness",
+            "/api/alert/grafana",
+            "/api/alert/opensearch",
+            "/api/alert/devops",
+            "/api/alert/",
+            "/api/issue/webhook/github",
+            "/"
     );
 
     /**

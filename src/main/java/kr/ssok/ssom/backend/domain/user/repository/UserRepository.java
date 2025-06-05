@@ -74,4 +74,7 @@ public interface UserRepository extends JpaRepository<User, String> {
      */
     @Query("SELECT u FROM User u WHERE u.username LIKE %:username% AND u.githubId IS NOT NULL AND u.githubId != ''")
     List<User> findByUsernameContainingIgnoreCaseAndGithubIdIsNotNull(@Param("username") String username);
+
+
+    List<User> findAllByGithubIdIn(List<String> githubIds);
 }

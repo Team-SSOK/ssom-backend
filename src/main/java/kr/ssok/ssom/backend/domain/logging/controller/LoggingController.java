@@ -68,7 +68,6 @@ public class LoggingController {
         LogSummaryMessageDto response = loggingService.getLogInfo(logId);
 
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, response));
-
     }
 
     // 로그 상세 조회 - 새롭게 생성한 로그 LLM 요약 반환

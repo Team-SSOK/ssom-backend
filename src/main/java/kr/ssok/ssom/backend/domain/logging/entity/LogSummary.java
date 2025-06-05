@@ -17,6 +17,9 @@ import lombok.NoArgsConstructor;
 public class LogSummary {
     @Id
     private String logId;
+    @Lob
+    private String logMessage;
+
     private String summary;
     private String fileLocation;
     private String functionLocation;

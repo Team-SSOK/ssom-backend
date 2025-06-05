@@ -24,6 +24,9 @@ public class Alert {
     @OneToMany(mappedBy = "alert", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AlertStatus> alertStatuses = new ArrayList<>();
 
+    //id
+    private String id;
+
     //제목
     private String title;
 
@@ -34,6 +37,10 @@ public class Alert {
     @Enumerated(EnumType.STRING)
     private AlertKind kind;
 
+    //발생 시간
+    private String timestamp;
+
+    //발송 시간
     @CreationTimestamp
     private LocalDateTime createdAt;
 }

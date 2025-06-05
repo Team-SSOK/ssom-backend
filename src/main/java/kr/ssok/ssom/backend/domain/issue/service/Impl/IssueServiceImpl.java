@@ -61,16 +61,20 @@ public class IssueServiceImpl implements IssueService {
             
             // 3. LLM API 요청 DTO 구성
             LlmApiRequestDto llmRequest = LlmApiRequestDto.builder()
-                    .logs(llmRequestLogs)
+                    .log(llmRequestLogs)
                     .build();
+
+            log.info("llmResponse log : {}", llmRequest.getLog());
             
             // 4. LLM API 호출하여 Issue 초안 작성
             log.info("LLM API 호출 시작");
             LlmApiResponseDto<LlmIssueResponseDto> llmResponse = llmServiceClient.writeIssue(llmRequest);
+
+            log.info("llmResponse result : {}", llmResponse.getResult());
             
             // 5. LLM API 응답 검증
-            if (!llmResponse.isSuccess() || llmResponse.getResult() == null || llmResponse.getResult().isEmpty()) {
-                log.error("LLM API 응답 실패 - Success: {}, Message: {}", llmResponse.isSuccess(), llmResponse.getMessage());
+            if (llmResponse.getResult() == null || llmResponse.getResult().isEmpty()) {
+                log.error("LLM API 응답 실패 - Success: {}, Message: {}", llmResponse.getIsSuccess(), llmResponse.getMessage());
                 throw new BaseException(BaseResponseStatus.LLM_API_ERROR);
             }
             

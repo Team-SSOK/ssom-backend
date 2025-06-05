@@ -1,11 +1,14 @@
 package kr.ssok.ssom.backend.domain.logging.service.Impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 
 import kr.ssok.ssom.backend.domain.logging.dto.*;
 import kr.ssok.ssom.backend.domain.logging.entity.LogSummary;
 import kr.ssok.ssom.backend.domain.logging.repository.LogSummaryRepository;
 import kr.ssok.ssom.backend.domain.logging.service.LoggingService;
+import kr.ssok.ssom.backend.domain.logging.sse.EmitterWithFilter;
 import kr.ssok.ssom.backend.global.client.LlmServiceClient;
 import kr.ssok.ssom.backend.global.dto.*;
 import kr.ssok.ssom.backend.global.exception.BaseException;
@@ -39,9 +42,10 @@ public class LoggingServiceImpl implements LoggingService {
     private final LlmServiceClient llmServiceClient;
     private final OpenSearchClient openSearchClient;
 
-    private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
+    private final ObjectMapper objectMapper;
+
+    Map<String, EmitterWithFilter> emitters = new ConcurrentHashMap<>();
     private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60; // 1시간
-    private static final String SSE_EVENT_TYPE = "logging";
 
     /**
      * 서비스 목록 조회
@@ -159,53 +163,151 @@ public class LoggingServiceImpl implements LoggingService {
      * 로그 SSE 구독
      */
     @Override
-    public SseEmitter subscribe(String employeeId, String lastEventId, HttpServletResponse response){
+    public SseEmitter subscribe(String employeeId, String app, String level, HttpServletResponse response){
         log.info("[로그 SSE 구독] 서비스 진입");
 
-        String emitterId = createTimeIncludeId(employeeId);
+        // 1. 기존 emitter 제거
+        if (emitters.containsKey(employeeId)) {
+            EmitterWithFilter wrapper = emitters.remove(employeeId);
+            if (wrapper != null) {
+                try {
+                    SseEmitter oldEmitter = wrapper.getEmitter();
+                    oldEmitter.complete();  // 또는 .completeWithError(new IOException("reconnect"));
+                    log.info("[로그 SSE 구독] 기존 emitter 제거 완료");
+                } catch (Exception e) {
+                    log.warn("[로그 SSE 구독] 기존 emitter 제거 중 예외 발생: {}", e.getMessage());
+                }
+            }
+        }
 
+        // 2. 새로운 emitter 생성
         SseEmitter emitter = new SseEmitter(DEFAULT_TIMEOUT);
-        emitters.put(emitterId, emitter);
+        EmitterWithFilter filteredEmitter = new EmitterWithFilter(emitter, app, level);
+        emitters.put(employeeId, filteredEmitter);
 
         response.setHeader("X-Accel-Buffering", "no");
 
-        emitter.onCompletion(() -> emitters.remove(emitterId));
-        emitter.onTimeout(() -> emitters.remove(emitterId));
-        emitter.onError((e) -> emitters.remove(emitterId));
+        // 3. 연결 종료 혹은 에러 발생 시 제거
+        emitter.onCompletion(() -> emitters.remove(employeeId));
+        emitter.onTimeout(() -> emitters.remove(employeeId));
+        emitter.onError((e) -> emitters.remove(employeeId));
 
+        // 4. 연결 테스트용 초기 이벤트 전송
         try {
-            String eventId = createTimeIncludeId(employeeId);
-            emitter.send(SseEmitter.event().id(eventId).name("INIT").data("connected"));
-        } catch (IOException e) {
-            emitters.remove(emitterId);
+            emitter.send(SseEmitter.event().name("INIT").data("connected"));
+        } catch (IOException | IllegalStateException e) {
+            emitters.remove(employeeId);
             emitter.completeWithError(e);
-            throw new RuntimeException("sse send failed" + e);
+            throw new BaseException(BaseResponseStatus.SSE_INIT_ERROR);
         }
 
-        log.info("sse 연결 완료");
+        log.info("[로그 SSE 구독] SSE 연결 완료: employeeId: {}", employeeId);
 
         return emitter;
-    }
-
-    private String createTimeIncludeId(String employeeId) {
-        return employeeId + "_" + System.currentTimeMillis() + "_" + SSE_EVENT_TYPE;
     }
 
     /**
      * 로그 SSE 전송 (실시간으로 뜨는 로그를 하나씩)
      */
-    public void sendLogToUser(String emitterId, LogDto logDto) {
+    public void sendLogToUsers(LogDto logDto) {
         log.info("[로그 SSE 전송] 서비스 진입");
 
-        SseEmitter emitter = emitters.get(emitterId);
-        if (emitter != null) {
-            try {
-                emitter.send(SseEmitter.event()
-                        .name("logging")
-                        .data(logDto));
-            } catch (IOException e) {
-                emitters.remove(emitterId);
+        List<String> deadEmitters = new ArrayList<>();
+
+        // 현재 연결된 모든 emitter들에 대해
+        for (Map.Entry<String, EmitterWithFilter> entry : emitters.entrySet()) {
+            String employeeId = entry.getKey();
+            EmitterWithFilter e = entry.getValue();
+
+            // 로그 목록 조회 필터링 조건 체크
+            boolean appMatches = e.getAppFilter().equalsIgnoreCase(logDto.getApp());
+            Set<String> userLevels = Set.of(e.getLevelFilter().split(","));
+            boolean levelMatches = userLevels.contains(logDto.getLevel());
+
+            // 필터링 조건 모두 만족하는 emitter에게만 전송
+            if (appMatches && levelMatches) {
+                try {
+                    e.getEmitter().send(SseEmitter.event()
+                            .name("logging")
+                            .data(logDto));
+                } catch (IOException ex) {
+                    deadEmitters.add(employeeId);
+                }
             }
+        }
+
+        deadEmitters.forEach(emitters::remove);
+
+    }
+
+    /**
+     * 오픈서치에서 보내주는 실시간 로그
+     */
+    @Override
+    public void createOpensearchAlert(String requestStr) {
+        log.info("[오픈서치 실시간 로그] 서비스 진입 : requestStr = {}", requestStr);
+
+        try {
+            if (requestStr == null || requestStr.isEmpty()) {
+                log.warn("[오픈서치 실시간 로그] 전달받은 원본 데이터가 비어있습니다.");
+                return;
+            }
+
+            List<LogDto> loggingList = parseRawStringToDtoList(requestStr);
+
+            if (loggingList == null || loggingList.isEmpty()) {
+                log.warn("[오픈서치 실시간 로그] Json 파싱 결과 실시간 로그 리스트가 비어있습니다.");
+                throw new BaseException(BaseResponseStatus.PARSING_ERROR);
+            }
+
+            for (LogDto loggingRequest : loggingList) {
+                try {
+                    sendLogToUsers(loggingRequest);
+                } catch (BaseException be) {
+                    log.error("[오픈서치 실시간 로그] 개별 실시간 로그 처리 실패 : loggingRequest = {}, error = {}", loggingRequest, be.getMessage());
+                } catch (Exception e) {
+                    log.error("[오픈서치 실시간 로그] 실시간 로그 처리 중 예외 발생 : loggingRequest = {}, error = {}", loggingRequest, e.getMessage(), e);
+                }
+            }
+
+            log.info("[오픈서치 실시간 로그] 전체 {}건 서비스 처리 완료", loggingList.size());
+
+        } catch (BaseException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("[오픈서치 실시간 로그] 전체 처리 중 예외 발생 - error = {}", e.getMessage(), e);
+            throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * 오픈서치에서 보내주는 데이터 파싱
+     */
+    private List<LogDto> parseRawStringToDtoList(String raw) {
+        log.info("[JSON Parsing] 진행 중 ...");
+
+        try {
+            if (raw == null || raw.isBlank()) {
+                log.warn("[JSON Parsing] 전달받은 원본 문자열이 비어있습니다.");
+                throw new BaseException(BaseResponseStatus.PARSING_ERROR);
+            }
+
+            // 공백 및 개행 제거
+            String fixed = raw.trim();
+            fixed = fixed.replaceAll(",\\s*]", "]");
+
+            if (!fixed.trim().startsWith("[")) {
+                log.warn("[JSON Parsing] 전달받은 원본 문자열의 형식이 상이합니다.");
+                throw new BaseException(BaseResponseStatus.PARSING_ERROR);
+            }
+
+            return objectMapper.readValue(fixed, new TypeReference<List<LogDto>>() {});
+
+        } catch (BaseException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("[JSON Parsing] JSON 파싱 중 예외 발생 : input = {}", raw, e);
+            throw new BaseException(BaseResponseStatus.PARSING_ERROR);
         }
     }
 

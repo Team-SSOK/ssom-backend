@@ -5,7 +5,7 @@ import lombok.Getter;
 
 @Tag(name = "AlertSendRequestDto", description = "DevOps에서 보내주는 포맷")
 @Getter
-public class AlertSendRequestDto {
+public class AlertDevopsRequestDto {
     private String level;
     private String app;
     private String timestamp;

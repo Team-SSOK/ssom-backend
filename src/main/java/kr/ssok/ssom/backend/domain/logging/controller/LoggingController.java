@@ -71,10 +71,10 @@ public class LoggingController {
     }
 
     // 로그 상세 조회 - 새롭게 생성한 로그 LLM 요약 반환
-    @PostMapping("/{logId}")
-    public ResponseEntity<BaseResponse<LogSummaryMessageDto>> summarizeLog(@PathVariable String logId, @RequestBody LogDto request) {
+    @PostMapping
+    public ResponseEntity<BaseResponse<LogSummaryMessageDto>> summarizeLog(@RequestBody LogDto request) {
 
-        log.info("LLM 요약 요청(logId: {})", logId);
+        log.info("LLM 요약 요청(logId: {})", request.getLogId());
         LogSummaryMessageDto response = loggingService.summarizeLog(request);
 
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, response));

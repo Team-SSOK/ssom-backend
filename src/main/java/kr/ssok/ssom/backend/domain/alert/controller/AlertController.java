@@ -100,7 +100,6 @@ public class AlertController {
                 .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
 
-
     @Operation(summary = "Jenkins 및 ArgoCD 알림", description = "Jenkins 및 argoCD 작업 완료 시 앱으로 알림을 전송합니다.")
     @PostMapping("/send")
     public ResponseEntity<BaseResponse<Void>> sendDevopsAlert(@RequestBody AlertSendRequestDto requestDto) {

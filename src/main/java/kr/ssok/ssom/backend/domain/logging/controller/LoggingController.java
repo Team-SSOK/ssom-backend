@@ -6,7 +6,6 @@ import kr.ssok.ssom.backend.domain.alert.service.AlertService;
 import kr.ssok.ssom.backend.domain.logging.dto.*;
 import kr.ssok.ssom.backend.domain.logging.service.LoggingService;
 import kr.ssok.ssom.backend.domain.user.security.principal.UserPrincipal;
-import kr.ssok.ssom.backend.global.dto.LogRequestDto;
 import kr.ssok.ssom.backend.global.dto.LogSummaryMessageDto;
 import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
@@ -17,8 +16,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.web.bind.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import java.io.IOException;
 
 @Slf4j
 @RestController
@@ -31,7 +28,7 @@ public class LoggingController {
 
     // 서비스 목록 조회
     @GetMapping("/services")
-    public ResponseEntity<BaseResponse<ServicesResponseDto>> getServices() throws IOException {
+    public ResponseEntity<BaseResponse<ServicesResponseDto>> getServices() {
 
         log.info("서비스 목록 조회 요청");
         ServicesResponseDto response = loggingService.getServices();

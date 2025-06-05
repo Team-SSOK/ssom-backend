@@ -62,6 +62,14 @@ public enum BaseResponseStatus {
     UNSUPPORTED_ALERT_KIND(false, 7007, "알림 유형이 유효하지 않습니다."),
     REDIS_ACCESS_FAILED(false, 7008, "Redis 접근에 실패하였습니다."),
 
+    // Logging 관련 오류
+    SERVICES_READ_FAILED(false, 8001, "OpenSearch에서 서비스 목록 조회에 실패했습니다."),
+    LOGS_READ_FAILED(false, 8002, "OpenSearch에서 로그 목록 조회에 실패했습니다."),
+    LOG_SUMMARY_NOT_FOUND(false, 8003, "기존에 생성된 LLM 요약이 없습니다."),
+    LLM_SUMMARY_FAILED(false, 8004, "LLM 서비스를 이용한 로그 분석 생성에 실패했습니다."),
+    LLM_SUMMARY_SAVE_FAILED(false, 8005, "LLM 로그 분석을 저장하는 데 실패했습니다."),
+    LOG_NOT_FOUND(false, 8006, "로그 ID로 로그를 조회하는 데 실패했습니다."),
+
     // 서버 오류
     INTERNAL_SERVER_ERROR(false, 5000, "서버 내부 오류가 발생했습니다.");
 

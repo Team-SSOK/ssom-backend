@@ -50,102 +50,112 @@ public class LoggingServiceImpl implements LoggingService {
      * 서비스 목록 조회
      */
     @Override
-    public ServicesResponseDto getServices() throws IOException {
+    public ServicesResponseDto getServices() {
 
-        SearchRequest request = new SearchRequest.Builder()
-                .index("ssok-app")
-                .size(0)  // hits는 필요 없으므로 0으로
-                .aggregations("apps", agg -> agg
-                        .terms(t -> t
-                                .field("app.keyword")
-                                .size(100)
-                        )
-                )
-                .build();
+        try {
+            SearchRequest request = new SearchRequest.Builder()
+                    .index("ssok-app")
+                    .size(0)  // hits는 필요 없으므로 0으로
+                    .aggregations("apps", agg -> agg
+                            .terms(t -> t
+                                    .field("app.keyword")
+                                    .size(100)
+                            )
+                    )
+                    .build();
 
-        SearchResponse<Void> response = openSearchClient.search(request, Void.class);
+            SearchResponse<Void> response = openSearchClient.search(request, Void.class);
 
-        List<ServiceDto> result = new ArrayList<>();
+            List<ServiceDto> result = new ArrayList<>();
 
-        // "apps" aggregation 추출
-        var appsAgg = response.aggregations().get("apps").sterms();
+            // "apps" aggregation 추출
+            var appsAgg = response.aggregations().get("apps").sterms();
 
-        for (StringTermsBucket bucket : appsAgg.buckets().array()) {
-            result.add(new ServiceDto(bucket.key(), bucket.docCount()));
+            for (StringTermsBucket bucket : appsAgg.buckets().array()) {
+                result.add(new ServiceDto(bucket.key(), bucket.docCount()));
+            }
+
+            return new ServicesResponseDto(result);
+
+        } catch (IOException e) {
+            throw new BaseException(BaseResponseStatus.SERVICES_READ_FAILED);
         }
 
-        return new ServicesResponseDto(result);
     }
 
     /**
      * 로그 목록 조회
      */
     @Override
-    public LogsResponseDto getLogs(String app, String level) throws Exception {
+    public LogsResponseDto getLogs(String app, String level) {
 
-        // 동적 bool 쿼리 빌더
-        BoolQuery.Builder boolQuery = new BoolQuery.Builder();
+        try {
+            // 동적 bool 쿼리 빌더
+            BoolQuery.Builder boolQuery = new BoolQuery.Builder();
 
-        if (StringUtils.hasText(app)) {
-            boolQuery.must(m -> m.match(match -> match.field("app.keyword").query(FieldValue.of(app))));
-        }
-
-        if (StringUtils.hasText(level)) {
-            boolQuery.must(m -> m.match(match -> match.field("level").query(FieldValue.of(level))));
-        } else {
-            // level이 없으면 기본적으로 ERROR + WARN
-            boolQuery.must(m -> m.terms(t -> t.field("level.keyword").terms(
-                    ts -> ts.value(List.of(FieldValue.of("ERROR"), FieldValue.of("WARN")))
-            )));
-        }
-
-        // 요청
-        SearchRequest request = new SearchRequest.Builder()
-                .index("ssok-app")
-                .query(q -> q.bool(boolQuery.build()))
-                .sort(s -> s
-                        .field(f -> f
-                                .field("@timestamp")
-                                .order(SortOrder.Desc)
-                        )
-                )
-                .source(s -> s
-                        .filter(f -> f
-                                .includes("@timestamp", "level", "logger", "thread", "message", "app")
-                        )
-                )
-                .size(10000) // 1000개 제한
-                .build();
-
-        SearchResponse<LogDataDto> response = openSearchClient.search(request, LogDataDto.class);
-
-        List<LogDto> result = response.hits().hits().stream()
-                .map(hit -> {
-                    LogDataDto source = hit.source();
-                    LogDto dto = new LogDto();
-                    dto.setLogId(hit.id());
-                    dto.setApp(source.getApp());
-                    dto.setTimestamp(source.getTimestamp());
-                    dto.setLevel(source.getLevel());
-                    dto.setLogger(source.getLogger());
-                    dto.setThread(source.getThread());
-                    dto.setMessage(source.getMessage());
-                    return dto;
-                })
-                .collect(Collectors.toList());
-
-        // 중복 제거: 연속된 같은 message만 하나만 남기기
-        List<LogDto> deduplicated = new ArrayList<>();
-        LogDto prev = null;
-        for (LogDto current : result) {
-            if (prev == null || !current.getMessage().equals(prev.getMessage())) {
-                deduplicated.add(current);
+            if (StringUtils.hasText(app)) {
+                boolQuery.must(m -> m.match(match -> match.field("app.keyword").query(FieldValue.of(app))));
             }
-            prev = current;
+
+            if (StringUtils.hasText(level)) {
+                boolQuery.must(m -> m.match(match -> match.field("level").query(FieldValue.of(level))));
+            } else {
+                // level이 없으면 기본적으로 ERROR + WARN
+                boolQuery.must(m -> m.terms(t -> t.field("level.keyword").terms(
+                        ts -> ts.value(List.of(FieldValue.of("ERROR"), FieldValue.of("WARN")))
+                )));
+            }
+
+            // 요청
+            SearchRequest request = new SearchRequest.Builder()
+                    .index("ssok-app")
+                    .query(q -> q.bool(boolQuery.build()))
+                    .sort(s -> s
+                            .field(f -> f
+                                    .field("@timestamp")
+                                    .order(SortOrder.Desc)
+                            )
+                    )
+                    .source(s -> s
+                            .filter(f -> f
+                                    .includes("@timestamp", "level", "logger", "thread", "message", "app")
+                            )
+                    )
+                    .size(10000) // 1000개 제한
+                    .build();
+
+            SearchResponse<LogDataDto> response = openSearchClient.search(request, LogDataDto.class);
+
+            List<LogDto> result = response.hits().hits().stream()
+                    .map(hit -> {
+                        LogDataDto source = hit.source();
+                        LogDto dto = new LogDto();
+                        dto.setLogId(hit.id());
+                        dto.setApp(source.getApp());
+                        dto.setTimestamp(source.getTimestamp());
+                        dto.setLevel(source.getLevel());
+                        dto.setLogger(source.getLogger());
+                        dto.setThread(source.getThread());
+                        dto.setMessage(source.getMessage());
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
+            // 중복 제거: 연속된 같은 message만 하나만 남기기
+            List<LogDto> deduplicated = new ArrayList<>();
+            LogDto prev = null;
+            for (LogDto current : result) {
+                if (prev == null || !current.getMessage().equals(prev.getMessage())) {
+                    deduplicated.add(current);
+                }
+                prev = current;
+            }
+
+            return new LogsResponseDto(deduplicated);
+        } catch (Exception e) {
+            throw new BaseException(BaseResponseStatus.LOGS_READ_FAILED);
         }
 
-
-        return new LogsResponseDto(deduplicated);
     }
 
     /**
@@ -213,7 +223,7 @@ public class LoggingServiceImpl implements LoggingService {
 
         // 없을 시 아무것도 반환하지 않음
         if (summaryOpt.isEmpty()) {
-            return null;
+            throw new BaseException(BaseResponseStatus.LOG_SUMMARY_NOT_FOUND);
         }
 
         // 있을 시 DB에서 조회된 기존 요약 내용 반환
@@ -250,21 +260,31 @@ public class LoggingServiceImpl implements LoggingService {
         LlmApiRequestDto llmRequestDto = LlmApiRequestDto.builder()
                 .log(List.of(requestDto))
                 .build();
-        LlmApiResponseDto<LogSummaryResponseDto> llmResponseDto = llmServiceClient.summarizeLog(llmRequestDto);
+
+        LlmApiResponseDto<LogSummaryResponseDto> llmResponseDto;
+        try {
+            llmResponseDto = llmServiceClient.summarizeLog(llmRequestDto);
+        } catch (Exception e) {
+            throw new BaseException(BaseResponseStatus.LLM_SUMMARY_FAILED);
+        }
 
         // 응답에서 요약 메시지 추출
         LogSummaryMessageDto summaryDto = llmResponseDto.getResult().get(0).getMessage();
 
         // DB에 저장
-        LogSummary summaryEntity = LogSummary.builder()
-                .logId(request.getLogId())
-                .summary(summaryDto.getSummary())
-                .fileLocation(summaryDto.getLocation().getFile())
-                .functionLocation(summaryDto.getLocation().getFunction())
-                .solution(summaryDto.getSolution())
-                .solutionDetail(summaryDto.getSolutionDetail())
-                .build();
-        logSummaryRepository.save(summaryEntity);
+        try {
+            LogSummary summaryEntity = LogSummary.builder()
+                    .logId(request.getLogId())
+                    .summary(summaryDto.getSummary())
+                    .fileLocation(summaryDto.getLocation().getFile())
+                    .functionLocation(summaryDto.getLocation().getFunction())
+                    .solution(summaryDto.getSolution())
+                    .solutionDetail(summaryDto.getSolutionDetail())
+                    .build();
+            logSummaryRepository.save(summaryEntity);
+        } catch (Exception e) {
+            throw new BaseException(BaseResponseStatus.LLM_SUMMARY_SAVE_FAILED);
+        }
 
         // 분석 내용 반환
         return summaryDto;
@@ -274,33 +294,38 @@ public class LoggingServiceImpl implements LoggingService {
      * 로그 ID 목록으로 로그 데이터 조회 (Issue 생성용)
      */
     @Override
-    public List<LogDto> getLogsByIds(List<String> logIds) throws Exception {
+    public List<LogDto> getLogsByIds(List<String> logIds) {
         log.info("로그 ID 목록으로 로그 조회: {}", logIds);
 
-        MgetRequest request = new MgetRequest.Builder()
-                .index("ssok-app")
-                .ids(logIds)
-                .build();
+        try {
+            MgetRequest request = new MgetRequest.Builder()
+                    .index("ssok-app")
+                    .ids(logIds)
+                    .build();
 
-        MgetResponse<LogDataDto> response = openSearchClient.mget(request, LogDataDto.class);
+            MgetResponse<LogDataDto> response = openSearchClient.mget(request, LogDataDto.class);
 
-        List<LogDto> result = new ArrayList<>();
-        for (var item : response.docs()) {
-            if (item.result().found()) {
-                var source = item.result().source();
-                var dto = new LogDto();
-                dto.setLogId(item.result().id());
-                dto.setApp(source.getApp());
-                dto.setTimestamp(source.getTimestamp());
-                dto.setLevel(source.getLevel());
-                dto.setLogger(source.getLogger());
-                dto.setThread(source.getThread());
-                dto.setMessage(source.getMessage());
-                result.add(dto);
+            List<LogDto> result = new ArrayList<>();
+            for (var item : response.docs()) {
+                if (item.result().found()) {
+                    var source = item.result().source();
+                    var dto = new LogDto();
+                    dto.setLogId(item.result().id());
+                    dto.setApp(source.getApp());
+                    dto.setTimestamp(source.getTimestamp());
+                    dto.setLevel(source.getLevel());
+                    dto.setLogger(source.getLogger());
+                    dto.setThread(source.getThread());
+                    dto.setMessage(source.getMessage());
+                    result.add(dto);
+                }
             }
+
+            return result;
+        } catch (Exception e) {
+            throw new BaseException(BaseResponseStatus.LOG_NOT_FOUND);
         }
 
-        return result;
     }
 
     /**

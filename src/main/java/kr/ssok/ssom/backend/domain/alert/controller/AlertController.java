@@ -100,10 +100,10 @@ public class AlertController {
                 .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
 
-    @Operation(summary = "Jenkins 및 ArgoCD 알림", description = "Jenkins 및 argoCD 작업 완료 시 앱으로 알림을 전송합니다.")
+    @Operation(summary = "Devops 알림", description = "Devops (Jenkins 및 argoCD) 작업 완료 시 앱으로 알림을 전송합니다.")
     @PostMapping("/devops")
     public ResponseEntity<BaseResponse<Void>> sendDevopsAlert(@RequestBody AlertDevopsRequestDto requestDto) {
-        log.info("[Jenkins 및 ArgoCD 알림] 컨트롤러 진입");
+        log.info("[Devops 알림] 컨트롤러 진입");
 
         alertService.createDevopsAlert(requestDto);
         return ResponseEntity

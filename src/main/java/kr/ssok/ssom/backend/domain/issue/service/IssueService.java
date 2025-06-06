@@ -47,19 +47,4 @@ public interface IssueService {
      * @return Issue 상세 정보
      */
     IssueResponseDto getIssue(Long issueId, String employeeId);
-    
-    /**
-     * GitHub Webhook을 통한 Issue 상태 동기화
-     * @param githubIssueNumber GitHub Issue 번호
-     * @param newStatus 새로운 상태
-     */
-    void syncIssueStatus(Long githubIssueNumber, String newStatus);
-    
-    /**
-     * GitHub Webhook 이벤트 처리
-     * @param webhookPayload Webhook 페이로드
-     * @param eventType 이벤트 타입 (issues, etc.)
-     * @param signature 서명 (검증용)
-     */
-    void handleGitHubWebhook(String webhookPayload, String eventType, String signature);
 }

@@ -44,6 +44,12 @@ public class AlertController {
             throw new BaseException(BaseResponseStatus.UNAUTHORIZED);
         }
 
+        // SSE 응답 헤더 설정
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("Connection", "keep-alive");
+        response.setHeader("Content-Type", "text/event-stream; charset=UTF-8");
+        response.setHeader("X-Accel-Buffering", "no");
+
         return alertService.subscribe(userPrincipal.getEmployeeId(), lastEventId, response);
     }
 

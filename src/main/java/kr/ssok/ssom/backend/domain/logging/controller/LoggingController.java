@@ -2,7 +2,6 @@ package kr.ssok.ssom.backend.domain.logging.controller;
 
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletResponse;
-import kr.ssok.ssom.backend.domain.alert.service.AlertService;
 import kr.ssok.ssom.backend.domain.logging.dto.*;
 import kr.ssok.ssom.backend.domain.logging.service.LoggingService;
 import kr.ssok.ssom.backend.domain.user.security.principal.UserPrincipal;
@@ -70,23 +69,34 @@ public class LoggingController {
     }
 
     // 로그 상세 조회 - 이전에 생성한 LLM 요약 반환
-    @GetMapping("/{logId}")
-    public ResponseEntity<BaseResponse<LogSummaryMessageDto>> getLogInfo(@PathVariable String logId) {
+    @GetMapping("/analysis/{logId}")
+    public ResponseEntity<BaseResponse<LogSummaryMessageDto>> getLogAnalysisInfo(@PathVariable String logId) {
 
         log.info("로그 상세 조회 요청 - 이전에 생성한 LLM 요약 반환(logId: {})", logId);
-        LogSummaryMessageDto response = loggingService.getLogInfo(logId);
+        LogSummaryMessageDto response = loggingService.getLogAnalysisInfo(logId);
 
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, response));
     }
 
     // 로그 상세 조회 - 새롭게 생성한 로그 LLM 요약 반환
-    @PostMapping
+    @PostMapping("/analysis")
     public ResponseEntity<BaseResponse<LogSummaryMessageDto>> summarizeLog(@RequestBody LogDto request) {
 
         log.info("LLM 요약 요청(logId: {})", request.getLogId());
-        LogSummaryMessageDto response = loggingService.summarizeLog(request);
+        LogSummaryMessageDto response = loggingService.analyzeLog(request);
 
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, response));
 
     }
+
+    // 로그 상세 조회
+    @GetMapping("/{logId}")
+    public ResponseEntity<BaseResponse<LogDto>> getLogInfo(@PathVariable String logId) {
+
+        log.info("로그 상세 조회 요청 (logId: {})", logId);
+        LogDto response = loggingService.getLogById(logId);
+
+        return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, response));
+    }
+
 }

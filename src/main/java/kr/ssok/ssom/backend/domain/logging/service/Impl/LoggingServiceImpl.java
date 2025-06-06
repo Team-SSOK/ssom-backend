@@ -20,10 +20,7 @@ import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.SortOrder;
 import org.opensearch.client.opensearch._types.aggregations.StringTermsBucket;
 import org.opensearch.client.opensearch._types.query_dsl.BoolQuery;
-import org.opensearch.client.opensearch.core.MgetRequest;
-import org.opensearch.client.opensearch.core.MgetResponse;
-import org.opensearch.client.opensearch.core.SearchRequest;
-import org.opensearch.client.opensearch.core.SearchResponse;
+import org.opensearch.client.opensearch.core.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -315,14 +312,10 @@ public class LoggingServiceImpl implements LoggingService {
      * 로그 상세 조회 - 이전에 생성한 LLM 요약 반환
      */
     @Override
-    public LogSummaryMessageDto getLogInfo(String logId) {
+    public LogSummaryMessageDto getLogAnalysisInfo(String logId) {
 
         // 로그 아이디로 OpenSearch에 로그 조회
-        List<LogDto> logsByIds = getLogsByIds(Collections.singletonList(logId));
-        if (logsByIds.isEmpty()) {
-            throw new BaseException(BaseResponseStatus.LOG_NOT_FOUND);
-        }
-        LogDto logDto = logsByIds.get(0);
+        LogDto logDto = getLogById(logId);
 
         // 로그 메시지로 DB 조회
         String logMessage = logDto.getMessage();
@@ -354,7 +347,7 @@ public class LoggingServiceImpl implements LoggingService {
      * 로그 상세 조회 - 새롭게 생성한 LLM 요약 반환
      */
     @Override
-    public LogSummaryMessageDto summarizeLog(LogDto request) {
+    public LogSummaryMessageDto analyzeLog(LogDto request) {
 
         // LLM 쪽으로 api 요청
         LogRequestDto requestDto = LogRequestDto.builder()
@@ -396,6 +389,42 @@ public class LoggingServiceImpl implements LoggingService {
 
         // 분석 내용 반환
         return summaryDto;
+    }
+
+    /**
+     * 로그 ID로 로그 데이터 조회
+     */
+    @Override
+    public LogDto getLogById(String logId) {
+        log.info("로그 ID로 단일 로그 조회: {}", logId);
+
+        try {
+            GetRequest request = new GetRequest.Builder()
+                    .index("ssok-app")
+                    .id(logId)
+                    .build();
+
+            GetResponse<LogDataDto> response = openSearchClient.get(request, LogDataDto.class);
+
+            if (!response.found()) {
+                throw new BaseException(BaseResponseStatus.LOG_NOT_FOUND);
+            }
+
+            LogDataDto source = response.source();
+            return LogDto.builder()
+                    .logId(response.id())
+                    .app(source.getApp())
+                    .timestamp(source.getTimestamp())
+                    .level(source.getLevel())
+                    .logger(source.getLogger())
+                    .thread(source.getThread())
+                    .message(source.getMessage())
+                    .build();
+
+        } catch (Exception e) {
+            log.error("로그 조회 중 예외 발생: {}", e.getMessage(), e);
+            throw new BaseException(BaseResponseStatus.LOG_NOT_FOUND);
+        }
     }
 
     /**

@@ -7,12 +7,15 @@ import kr.ssok.ssom.backend.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.task.DelegatingSecurityContextAsyncTaskExecutor;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -59,6 +62,7 @@ public class SecurityConfig {
      * 비동기 처리를 위한 Security Context 전파 설정
      */
     static {
+        // 비동기 처리 시 Security Context 전파를 위한 전략 설정
         SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
     }
 
@@ -68,6 +72,16 @@ public class SecurityConfig {
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
         return new JwtAuthenticationFilter(jwtTokenProvider, redisTemplate, userService, WHITELIST_PATHS);
+    }
+
+    /**
+     * 비동기 처리를 위한 DelegatingSecurityContextAsyncTaskExecutor 설정
+     */
+    @Bean
+    public DelegatingSecurityContextAsyncTaskExecutor taskExecutor() {
+        return new DelegatingSecurityContextAsyncTaskExecutor(
+                new SimpleAsyncTaskExecutor("sse-")
+        );
     }
 
     /**

@@ -16,7 +16,8 @@ public enum BaseResponseStatus {
 
     BAD_REQUEST(false, 4000, "잘못된 요청입니다."),
     INVALID_PARAMETER(false, 4001, "유효하지 않은 파라미터입니다."),
-    INVALID_REQUEST(false, 4002, "유효하지 않은 요청입니다"),
+    INVALID_REQUEST(false, 4002, "유효하지 않은 요청입니다."),
+    UNAUTHORIZED(false, 4003, "인증되지 않은 사용자입니다."),
 
     // 회원 관련 오류
     INVALID_SIGNUP_REQUEST_VALUE(false, 4002, "유효하지 않은 회원가입 양식입니다."),

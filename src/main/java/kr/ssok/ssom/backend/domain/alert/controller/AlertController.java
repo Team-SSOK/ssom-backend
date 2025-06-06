@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import kr.ssok.ssom.backend.domain.alert.dto.*;
 import kr.ssok.ssom.backend.domain.alert.service.AlertService;
 import kr.ssok.ssom.backend.domain.user.security.principal.UserPrincipal;
+import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,12 @@ public class AlertController {
                                 HttpServletResponse response) {
         log.info("[알림 SSE 구독] 컨트롤러 진입");
 
+        // 인증되지 않은 사용자 처리
+        if (userPrincipal == null) {
+            log.error("알림 SSE 구독 실패 - 인증되지 않은 사용자");
+            throw new BaseException(BaseResponseStatus.UNAUTHORIZED);
+        }
+
         return alertService.subscribe(userPrincipal.getEmployeeId(), lastEventId, response);
     }
 
@@ -44,6 +51,12 @@ public class AlertController {
     @GetMapping
     public BaseResponse<List<AlertResponseDto>> getAllAlerts(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         log.info("[전체 알림 목록 조회] 컨트롤러 진입");
+
+        // 인증되지 않은 사용자 처리
+        if (userPrincipal == null) {
+            log.error("전체 알림 목록 조회 실패 - 인증되지 않은 사용자");
+            throw new BaseException(BaseResponseStatus.UNAUTHORIZED);
+        }
 
         return new BaseResponse<>(BaseResponseStatus.SUCCESS,
                 alertService.getAllAlertsForUser(userPrincipal.getEmployeeId()));

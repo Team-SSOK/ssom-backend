@@ -74,7 +74,13 @@ public class AlertServiceImpl implements AlertService {
         if (emitters.containsKey(emitterId)) {
             log.warn("[알림 SSE 구독] 기존 emitter 존재. 제거 후 새 emitter 생성 : emitterId = {}", emitterId);
             SseEmitter oldEmitter = emitters.remove(emitterId);
-            if (oldEmitter != null) oldEmitter.complete();
+            if (oldEmitter != null) {
+                try {
+                    oldEmitter.complete();
+                } catch (Exception e) {
+                    log.warn("[알림 SSE 구독] 기존 emitter 완료 중 오류 무시 : {}", e.getMessage());
+                }
+            }
         }
 
         // 4. emitter 생성 및 등록
@@ -83,9 +89,7 @@ public class AlertServiceImpl implements AlertService {
 
         log.info("[알림 SSE 구독] 연결 완료 : employeeId = {}, emitterId = {}", employeeId, emitterId);
 
-        response.setHeader("X-Accel-Buffering", "no");
-
-        // 5. emitter 이벤트 콜백 등록
+        // 5. emitter 이벤트 콜백 등록 - 비동기 처리 중 보안 컨텍스트 유지
         emitter.onCompletion(() -> {
             log.info("[Emitter 완료] emitterId = {}", emitterId);
             emitters.remove(emitterId);
@@ -93,10 +97,20 @@ public class AlertServiceImpl implements AlertService {
         emitter.onTimeout(() -> {
             log.info("[Emitter 타임아웃] emitterId = {}", emitterId);
             emitters.remove(emitterId);
+            try {
+                emitter.complete();
+            } catch (Exception e) {
+                log.warn("[Emitter 타임아웃 처리 중 오류] emitterId = {}, error = {}", emitterId, e.getMessage());
+            }
         });
         emitter.onError((e) -> {
             log.error("[Emitter 오류 발생] emitterId = {}, error = {}", emitterId, e.getMessage(), e);
             emitters.remove(emitterId);
+            try {
+                emitter.completeWithError(e);
+            } catch (Exception ex) {
+                log.warn("[Emitter 오류 처리 중 추가 오류] emitterId = {}, error = {}", emitterId, ex.getMessage());
+            }
         });
 
         // 6. 클라이언트에 연결 초기 이벤트 전송
@@ -111,8 +125,7 @@ public class AlertServiceImpl implements AlertService {
 
         } catch (IOException | IllegalStateException e) {
             emitters.remove(emitterId);
-            emitter.completeWithError(e);
-
+            
             log.error("[알림 SSE 구독] 오류 : SSE_ALERT_INIT failed  - emitterId = {}, error = {}", emitterId, e.getMessage(), e);
             throw new BaseException(BaseResponseStatus.SSE_INIT_ERROR);
         }
@@ -560,27 +573,44 @@ public class AlertServiceImpl implements AlertService {
      * @param responseDto
     */
     public void sendSseAlertToUser(String emitterId, AlertResponseDto responseDto) {
-        log.info("[알림 SSE 전송] 서비스 진입");
+        log.info("[알림 SSE 전송] 서비스 진입 - emitterId: {}", emitterId);
 
         SseEmitter emitter = emitters.get(emitterId);
-        if (emitter != null) {
-            try {
-                emitter.send(SseEmitter.event()
-                        .name("SSE_ALERT")
-                        .data(responseDto));
-            } catch (IOException e) {
-                emitters.remove(emitterId);
-                log.error("[SSE 전송 실패, FCM으로 전환] employeeId = {}", emitterId, e);
-                sendFcmNotification(emitterId, responseDto);
-            } catch (Exception e) {
-                log.error("[알림 SSE 전송 중 예기치 못한 오류] employeeId = {}", emitterId, e);
-                // 필요시 추가 조치 가능
-            }
-        } else {
+        if (emitter == null) {
             log.warn("[알림 SSE 전송] Emitter가 존재하지 않습니다. employeeId = {}", emitterId);
+            return;
         }
 
-        log.info("[알림 SSE 전송] 처리 완료.");
+        try {
+            // 안전한 SSE 전송을 위한 동기화 처리
+            synchronized (emitter) {
+                emitter.send(SseEmitter.event()
+                        .name("SSE_ALERT")
+                        .id(createTimeIncludeId(emitterId))
+                        .data(responseDto)
+                        .reconnectTime(3000L));
+                        
+                log.info("[알림 SSE 전송] 성공 - emitterId: {}, alertId: {}", emitterId, responseDto.getAlertId());
+            }
+        } catch (IOException e) {
+            log.error("[SSE 전송 실패, FCM으로 전환] employeeId = {}, error = {}", emitterId, e.getMessage());
+            emitters.remove(emitterId);
+            
+            // SSE 실패 시 FCM으로 대체
+            try {
+                sendFcmNotification(emitterId, responseDto);
+            } catch (Exception fcmException) {
+                log.error("[FCM 대체 전송도 실패] employeeId = {}, error = {}", emitterId, fcmException.getMessage());
+            }
+        } catch (IllegalStateException e) {
+            log.error("[SSE 전송 실패 - Emitter 상태 오류] employeeId = {}, error = {}", emitterId, e.getMessage());
+            emitters.remove(emitterId);
+        } catch (Exception e) {
+            log.error("[알림 SSE 전송 중 예기치 못한 오류] employeeId = {}, error = {}", emitterId, e.getMessage(), e);
+            emitters.remove(emitterId);
+        }
+
+        log.info("[알림 SSE 전송] 처리 완료 - emitterId: {}", emitterId);
     }
 
     /**

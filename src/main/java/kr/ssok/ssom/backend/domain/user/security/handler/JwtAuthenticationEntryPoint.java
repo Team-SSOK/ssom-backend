@@ -28,7 +28,21 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
             HttpServletResponse response,
             AuthenticationException authException) throws IOException {
         
-        log.error("Unauthorized error for request [{}]: {}", request.getRequestURI(), authException.getMessage());
+        String requestUri = request.getRequestURI();
+        log.error("Unauthorized error for request [{}]: {}", requestUri, authException.getMessage());
+        
+        // 응답이 이미 커밋된 경우 처리하지 않음 (SSE 등의 경우)
+        if (response.isCommitted()) {
+            log.warn("Response already committed for request [{}]. Cannot send error response.", requestUri);
+            return;
+        }
+        
+        // SSE 요청인 경우 특별 처리
+        if (requestUri.contains("/subscribe") || "text/event-stream".equals(request.getHeader("Accept"))) {
+            log.warn("SSE request authentication failed [{}]. Closing connection.", requestUri);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
         
         // 응답 설정
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -41,10 +55,14 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         errorResponse.put("code", HttpServletResponse.SC_UNAUTHORIZED);
         errorResponse.put("message", "인증에 실패하였습니다. 로그인이 필요합니다.");
         errorResponse.put("timestamp", System.currentTimeMillis());
-        errorResponse.put("path", request.getRequestURI());
+        errorResponse.put("path", requestUri);
 
         // JSON 응답 전송
-        response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
-        response.getWriter().flush();
+        try {
+            response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
+            response.getWriter().flush();
+        } catch (IOException e) {
+            log.error("Failed to send error response for request [{}]: {}", requestUri, e.getMessage());
+        }
     }
 }

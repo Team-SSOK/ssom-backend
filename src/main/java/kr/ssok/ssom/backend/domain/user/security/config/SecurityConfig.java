@@ -79,8 +79,23 @@ public class SecurityConfig {
      */
     @Bean
     public DelegatingSecurityContextAsyncTaskExecutor taskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(10);
+        executor.setMaxPoolSize(50);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("sse-");
+        executor.initialize();
+        
+        return new DelegatingSecurityContextAsyncTaskExecutor(executor);
+    }
+
+    /**
+     * SSE를 위한 추가 비동기 처리 설정
+     */
+    @Bean
+    public DelegatingSecurityContextAsyncTaskExecutor sseTaskExecutor() {
         return new DelegatingSecurityContextAsyncTaskExecutor(
-                new SimpleAsyncTaskExecutor("sse-")
+                new SimpleAsyncTaskExecutor("sse-emitter-")
         );
     }
 

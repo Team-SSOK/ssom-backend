@@ -22,5 +22,9 @@ public interface AlertService {
     void sendAlertToUser(String employeeId, AlertResponseDto alertResponseDto);
     void sendSseAlertToUser(String emitterId, AlertResponseDto alertResponseDto);
     void sendFcmNotification(String employeeId, AlertResponseDto alertResponseDto);
+    
+    // SSE 연결 관리 메서드
+    void cleanupDisconnectedEmitters();
+    int getActiveEmitterCount();
 }
 

@@ -64,24 +64,13 @@ public class AlertServiceImpl implements AlertService {
         if (employeeId == null || employeeId.trim().isEmpty()) {
             log.error("[알림 SSE 구독] 오류 : employeeId = {}", employeeId);
             throw new BaseException(BaseResponseStatus.SSE_BAD_REQUEST);
-
         }
 
         // 2. emitterId 생성 (고유 식별자)
         String emitterId = employeeId;
 
-        // 3. 기존 emitter 존재 시 제거
-        if (emitters.containsKey(emitterId)) {
-            log.warn("[알림 SSE 구독] 기존 emitter 존재. 제거 후 새 emitter 생성 : emitterId = {}", emitterId);
-            SseEmitter oldEmitter = emitters.remove(emitterId);
-            if (oldEmitter != null) {
-                try {
-                    oldEmitter.complete();
-                } catch (Exception e) {
-                    log.warn("[알림 SSE 구독] 기존 emitter 완료 중 오류 무시 : {}", e.getMessage());
-                }
-            }
-        }
+        // 3. 기존 emitter 존재 시 안전하게 제거
+        cleanupExistingEmitter(emitterId);
 
         // 4. emitter 생성 및 등록
         SseEmitter emitter = new SseEmitter(DEFAULT_TIMEOUT);
@@ -89,50 +78,83 @@ public class AlertServiceImpl implements AlertService {
 
         log.info("[알림 SSE 구독] 연결 완료 : employeeId = {}, emitterId = {}", employeeId, emitterId);
 
-        // 5. emitter 이벤트 콜백 등록 - 비동기 처리 중 보안 컨텍스트 유지
+        // 5. emitter 이벤트 콜백 등록 - Security Context 없이 안전하게 처리
+        setupEmitterCallbacks(emitter, emitterId);
+
+        // 6. 클라이언트에 연결 초기 이벤트 전송
+        sendInitialEvent(emitter, emitterId);
+
+        log.info("[알림 SSE 구독] SSE 연결 완료 : emitterId = {}", emitterId);
+        return emitter;
+    }
+
+    /**
+     * 기존 emitter 안전하게 정리
+     */
+    private void cleanupExistingEmitter(String emitterId) {
+        SseEmitter existingEmitter = emitters.remove(emitterId);
+        if (existingEmitter != null) {
+            log.warn("[알림 SSE 구독] 기존 emitter 존재. 안전하게 제거 : emitterId = {}", emitterId);
+            try {
+                existingEmitter.complete();
+            } catch (Exception e) {
+                log.debug("[알림 SSE 구독] 기존 emitter 정리 중 예외 무시 : emitterId = {}, error = {}", 
+                         emitterId, e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Emitter 콜백 설정 - Security Context 없이 안전하게 처리
+     */
+    private void setupEmitterCallbacks(SseEmitter emitter, String emitterId) {
+        // onCompletion: 정상 완료 시
         emitter.onCompletion(() -> {
             log.info("[Emitter 완료] emitterId = {}", emitterId);
             emitters.remove(emitterId);
         });
+
+        // onTimeout: 타임아웃 시 - Security Context 사용 안함
         emitter.onTimeout(() -> {
             log.info("[Emitter 타임아웃] emitterId = {}", emitterId);
             emitters.remove(emitterId);
-            try {
-                emitter.complete();
-            } catch (Exception e) {
-                log.warn("[Emitter 타임아웃 처리 중 오류] emitterId = {}, error = {}", emitterId, e.getMessage());
-            }
-        });
-        emitter.onError((e) -> {
-            log.error("[Emitter 오류 발생] emitterId = {}, error = {}", emitterId, e.getMessage(), e);
-            emitters.remove(emitterId);
-            try {
-                emitter.completeWithError(e);
-            } catch (Exception ex) {
-                log.warn("[Emitter 오류 처리 중 추가 오류] emitterId = {}, error = {}", emitterId, ex.getMessage());
-            }
+            // 명시적으로 complete 호출하지 않음 (이미 타임아웃됨)
         });
 
-        // 6. 클라이언트에 연결 초기 이벤트 전송
+        // onError: 오류 발생 시 - Security Context 사용 안함
+        emitter.onError((throwable) -> {
+            log.error("[Emitter 오류 발생] emitterId = {}, error = {}", 
+                     emitterId, throwable.getMessage());
+            emitters.remove(emitterId);
+            // 에러 발생 시에도 명시적 complete 불필요
+        });
+    }
+
+    /**
+     * 초기 연결 이벤트 전송
+     */
+    private void sendInitialEvent(SseEmitter emitter, String emitterId) {
         try {
             String eventId = createTimeIncludeId(emitterId);
             emitter.send(SseEmitter.event()
                     .id(eventId)
                     .name("SSE_ALERT_INIT")
-                    .data("connected"));
+                    .data("connected")
+                    .reconnectTime(3000L)); // 재연결 시간 설정
 
             log.info("[알림 SSE 구독] SSE 초기 이벤트 전송 성공 : emitterId = {}, eventId = {}", emitterId, eventId);
 
-        } catch (IOException | IllegalStateException e) {
+        } catch (IOException e) {
             emitters.remove(emitterId);
-            
-            log.error("[알림 SSE 구독] 오류 : SSE_ALERT_INIT failed  - emitterId = {}, error = {}", emitterId, e.getMessage(), e);
+            log.error("[알림 SSE 구독] 초기 이벤트 전송 실패 : emitterId = {}, error = {}", 
+                     emitterId, e.getMessage());
+            throw new BaseException(BaseResponseStatus.SSE_INIT_ERROR);
+        } catch (IllegalStateException e) {
+            emitters.remove(emitterId);
+            log.error("[알림 SSE 구독] Emitter 상태 오류 : emitterId = {}, error = {}", 
+                     emitterId, e.getMessage());
             throw new BaseException(BaseResponseStatus.SSE_INIT_ERROR);
         }
-
-        log.info("[알림 SSE 구독] SSE 연결 완료 : emitterId = {}", emitterId);
-
-        return emitter;
     }
 
     private String createTimeIncludeId(String employeeId) {
@@ -567,7 +589,7 @@ public class AlertServiceImpl implements AlertService {
     }
 
     /**
-     * 알림 SSE 전송
+     * 알림 SSE 전송 - 안전한 전송 및 예외 처리
      *
      * @param emitterId
      * @param responseDto
@@ -582,7 +604,7 @@ public class AlertServiceImpl implements AlertService {
         }
 
         try {
-            // 안전한 SSE 전송을 위한 동기화 처리
+            // Thread-safe SSE 전송
             synchronized (emitter) {
                 emitter.send(SseEmitter.event()
                         .name("SSE_ALERT")
@@ -594,23 +616,60 @@ public class AlertServiceImpl implements AlertService {
             }
         } catch (IOException e) {
             log.error("[SSE 전송 실패, FCM으로 전환] employeeId = {}, error = {}", emitterId, e.getMessage());
-            emitters.remove(emitterId);
-            
-            // SSE 실패 시 FCM으로 대체
-            try {
-                sendFcmNotification(emitterId, responseDto);
-            } catch (Exception fcmException) {
-                log.error("[FCM 대체 전송도 실패] employeeId = {}, error = {}", emitterId, fcmException.getMessage());
-            }
+            handleSseFailure(emitterId, responseDto);
         } catch (IllegalStateException e) {
             log.error("[SSE 전송 실패 - Emitter 상태 오류] employeeId = {}, error = {}", emitterId, e.getMessage());
-            emitters.remove(emitterId);
+            handleSseFailure(emitterId, responseDto);
         } catch (Exception e) {
             log.error("[알림 SSE 전송 중 예기치 못한 오류] employeeId = {}, error = {}", emitterId, e.getMessage(), e);
-            emitters.remove(emitterId);
+            handleSseFailure(emitterId, responseDto);
         }
 
-        log.info("[알림 SSE 전송] 처리 완료 - emitterId: {}", emitterId);
+        log.debug("[알림 SSE 전송] 처리 완료 - emitterId: {}", emitterId);
+    }
+
+    /**
+     * SSE 전송 실패 시 처리
+     */
+    private void handleSseFailure(String emitterId, AlertResponseDto responseDto) {
+        // 실패한 emitter 제거
+        emitters.remove(emitterId);
+        
+        // FCM으로 대체 전송 시도
+        try {
+            sendFcmNotification(emitterId, responseDto);
+            log.info("[FCM 대체 전송] 성공 - employeeId = {}", emitterId);
+        } catch (Exception fcmException) {
+            log.error("[FCM 대체 전송 실패] employeeId = {}, error = {}", emitterId, fcmException.getMessage());
+        }
+    }
+
+    /**
+     * SSE 연결 상태 확인 및 정리
+     */
+    public void cleanupDisconnectedEmitters() {
+        emitters.entrySet().removeIf(entry -> {
+            String emitterId = entry.getKey();
+            SseEmitter emitter = entry.getValue();
+            
+            try {
+                // 간단한 heartbeat 전송으로 연결 상태 확인
+                emitter.send(SseEmitter.event()
+                        .name("heartbeat")
+                        .data("ping"));
+                return false; // 연결 유지
+            } catch (Exception e) {
+                log.info("[SSE 정리] 비활성 emitter 제거 - emitterId: {}", emitterId);
+                return true; // 연결 끊어짐, 제거
+            }
+        });
+    }
+
+    /**
+     * 현재 활성 SSE 연결 수 반환
+     */
+    public int getActiveEmitterCount() {
+        return emitters.size();
     }
 
     /**

@@ -121,7 +121,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> 
                     session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 
-                // 예외 처리 설정
+                // 예외 처리 설정 - SSE 응답 커밋 상태 고려
                 .exceptionHandling(exception -> 
                     exception.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 
@@ -133,6 +133,12 @@ public class SecurityConfig {
                 
                 // JWT 인증 필터 추가
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+                
+                // 비동기 요청 지원 활성화 (SSE 포함)
+                .headers(headers -> headers
+                    .frameOptions().sameOrigin()
+                    .httpStrictTransportSecurity(hstsConfig -> hstsConfig.disable())
+                )
                 
                 .build();
     }

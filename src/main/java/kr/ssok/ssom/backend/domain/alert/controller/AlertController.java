@@ -80,10 +80,10 @@ public class AlertController {
 
     @Operation(summary = "오픈서치 대시보드 알림", description = "오픈서치 대시보드 알림 데이터를 받아 앱으로 전송합니다.")
     @PostMapping("/opensearch")
-    public ResponseEntity<BaseResponse<Void>> sendOpensearchAlert(@RequestBody AlertOpensearchRequestDto requestDto) {
+    public ResponseEntity<BaseResponse<Void>> sendOpensearchAlert(@RequestBody String requestStr) {
         log.info("[오픈서치 대시보드 알림] 컨트롤러 진입");
 
-        alertService.createOpensearchAlert(requestDto);
+        alertService.createOpensearchAlert(requestStr);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
@@ -100,10 +100,10 @@ public class AlertController {
                 .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
 
-    @Operation(summary = "Jenkins 및 ArgoCD 알림", description = "Jenkins 및 argoCD 작업 완료 시 앱으로 알림을 전송합니다.")
+    @Operation(summary = "Devops 알림", description = "Devops (Jenkins 및 argoCD) 작업 완료 시 앱으로 알림을 전송합니다.")
     @PostMapping("/devops")
     public ResponseEntity<BaseResponse<Void>> sendDevopsAlert(@RequestBody AlertDevopsRequestDto requestDto) {
-        log.info("[Jenkins 및 ArgoCD 알림] 컨트롤러 진입");
+        log.info("[Devops 알림] 컨트롤러 진입");
 
         alertService.createDevopsAlert(requestDto);
         return ResponseEntity

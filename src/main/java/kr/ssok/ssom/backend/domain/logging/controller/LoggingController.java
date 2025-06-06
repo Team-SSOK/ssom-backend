@@ -2,7 +2,6 @@ package kr.ssok.ssom.backend.domain.logging.controller;
 
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletResponse;
-import kr.ssok.ssom.backend.domain.alert.service.AlertService;
 import kr.ssok.ssom.backend.domain.logging.dto.*;
 import kr.ssok.ssom.backend.domain.logging.service.LoggingService;
 import kr.ssok.ssom.backend.domain.user.security.principal.UserPrincipal;
@@ -11,6 +10,7 @@ import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.web.bind.annotation.AuthenticationPrincipal;
@@ -24,7 +24,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class LoggingController {
 
     private final LoggingService loggingService;
-    private final AlertService alertService;
 
     // 서비스 목록 조회
     @GetMapping("/services")
@@ -49,32 +48,55 @@ public class LoggingController {
 
     }
 
+    // 오픈서치에서 보내주는 실시간 로그
+    @PostMapping("/opensearch")
+    public ResponseEntity<BaseResponse<Void>> sendOpensearchLogging(@RequestBody String requestStr) {
+        log.info("[오픈서치 대시보드 알림] 컨트롤러 진입");
+
+        loggingService.createOpensearchAlert(requestStr);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
+    }
+
     // 로그 SSE 구독
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(@Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal userPrincipal,
-                                @RequestHeader(value = "Last-Event-ID", required = false, defaultValue = "") String lastEventId,
+                                @RequestParam(value = "app", required = false) String appFilter,
+                                @RequestParam(value = "level", required = false) String levelFilter,
                                 HttpServletResponse response) {
-        return loggingService.subscribe(userPrincipal.getEmployeeId(), lastEventId, response);
+        return loggingService.subscribe(userPrincipal.getEmployeeId(), appFilter, levelFilter, response);
     }
 
     // 로그 상세 조회 - 이전에 생성한 LLM 요약 반환
-    @GetMapping("/{logId}")
-    public ResponseEntity<BaseResponse<LogSummaryMessageDto>> getLogInfo(@PathVariable String logId) {
+    @GetMapping("/analysis/{logId}")
+    public ResponseEntity<BaseResponse<LogSummaryMessageDto>> getLogAnalysisInfo(@PathVariable String logId) {
 
         log.info("로그 상세 조회 요청 - 이전에 생성한 LLM 요약 반환(logId: {})", logId);
-        LogSummaryMessageDto response = loggingService.getLogInfo(logId);
+        LogSummaryMessageDto response = loggingService.getLogAnalysisInfo(logId);
 
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, response));
     }
 
     // 로그 상세 조회 - 새롭게 생성한 로그 LLM 요약 반환
-    @PostMapping
+    @PostMapping("/analysis")
     public ResponseEntity<BaseResponse<LogSummaryMessageDto>> summarizeLog(@RequestBody LogDto request) {
 
         log.info("LLM 요약 요청(logId: {})", request.getLogId());
-        LogSummaryMessageDto response = loggingService.summarizeLog(request);
+        LogSummaryMessageDto response = loggingService.analyzeLog(request);
 
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, response));
 
     }
+
+    // 로그 상세 조회
+    @GetMapping("/{logId}")
+    public ResponseEntity<BaseResponse<LogDto>> getLogInfo(@PathVariable String logId) {
+
+        log.info("로그 상세 조회 요청 (logId: {})", logId);
+        LogDto response = loggingService.getLogById(logId);
+
+        return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, response));
+    }
+
 }

@@ -1,13 +1,11 @@
 package kr.ssok.ssom.backend.domain.alert.dto;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Tag(name = "AlertRequestDto", description = "알림 저장을 위한 공통 포맷")
 @Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

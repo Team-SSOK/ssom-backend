@@ -280,20 +280,19 @@ public class AlertServiceImpl implements AlertService {
      *      1. String으로 받은 데이터 Json으로 parsing하여 공통 포맷에 담기
      *      2. createAlert 전송
      *
-     * @param requestDto : String, 리스트
+     * @param requestStr : String, 리스트
      */
     @Override
-    public void createOpensearchAlert(AlertOpensearchRequestDto requestDto) {
-        log.info("[오픈서치 대시보드 알림] 서비스 진입 : requestDto = {}", requestDto);
+    public void createOpensearchAlert(String requestStr) {
+        log.info("[오픈서치 대시보드 알림] 서비스 진입 : requestStr = {}", requestStr);
 
         try {
-            if (requestDto == null || requestDto.getRequest() == null || requestDto.getRequest().isBlank()) {
+            if (requestStr == null || requestStr.isEmpty()) {
                 log.warn("[오픈서치 대시보드 알림] 전달받은 원본 데이터가 비어있습니다.");
                 return;
             }
 
-            String rawJson = requestDto.getRequest();
-            List<AlertRequestDto> alertList = parseRawStringToDtoList(rawJson);
+            List<AlertRequestDto> alertList = parseRawStringToDtoList(requestStr);
 
             if (alertList == null || alertList.isEmpty()) {
                 log.warn("[오픈서치 대시보드 알림] Json 파싱 결과 알림 리스트가 비어있습니다.");
@@ -329,39 +328,17 @@ public class AlertServiceImpl implements AlertService {
                 throw new BaseException(BaseResponseStatus.PARSING_ERROR);
             }
 
-            // 1. 중첩된 중괄호 제거: "{{" → "{", "}}" → "}"
-            String fixed = raw.replaceAll("\\{\\s*\\{", "\\{")
-                    .replaceAll("}}", "}");
+            // 공백 및 개행 제거
+            String fixed = raw.trim();
+            fixed = fixed.replaceAll(",\\s*]", "]");
 
-            // 2. 마지막 쉼표 제거
-            fixed = fixed.trim();
-            if (fixed.endsWith(",")) {
-                fixed = fixed.substring(0, fixed.length() - 1);
+            if (!fixed.trim().startsWith("[")) {
+                log.warn("[JSON Parsing] 전달받은 원본 문자열의 형식이 상이합니다.");
+                throw new BaseException(BaseResponseStatus.PARSING_ERROR);
             }
 
-            // 3. JSON 배열 형태로 감싸기
-            // 여러 개의 객체가 있을 경우 각 객체를 `}, {` 로 구분하므로
-            // 이걸 이용해서 안전하게 나누고 다시 배열화
-            if (!fixed.startsWith("[") && !fixed.endsWith("]")) {
-                // 객체들 추출
-                String[] objects = fixed.split("},\\s*\\{");
-                StringBuilder sb = new StringBuilder();
-                sb.append("[");
-                for (int i = 0; i < objects.length; i++) {
-                    String obj = objects[i].trim();
+            return objectMapper.readValue(fixed, new TypeReference<List<AlertRequestDto>>() {});
 
-                    // 맨 앞/뒤 중괄호 정리
-                    if (!obj.startsWith("{")) sb.append("{");
-                    sb.append(obj);
-                    if (!obj.endsWith("}")) sb.append("}");
-
-                    if (i != objects.length - 1) sb.append(",");
-                }
-                sb.append("]");
-                fixed = sb.toString();
-            }
-
-            return objectMapper.readValue(fixed, new TypeReference<>() {});
         } catch (BaseException e) {
             throw e;
         } catch (Exception e) {
@@ -393,10 +370,12 @@ public class AlertServiceImpl implements AlertService {
 
             // 2. 알림 대상자 조회
             List<User> targetUsers = new ArrayList<>();
-            List<String> sharedIds = requestDto.getSharedEmployeeIds();
+            //List<String> sharedIds = requestDto.getSharedEmployeeIds();
+            List<String> sharedIds = requestDto.getAssigneeGithubIds();
 
             if (sharedIds != null && !sharedIds.isEmpty()) {
-                targetUsers = userRepository.findAllById(sharedIds);
+                //targetUsers = userRepository.findAllById(sharedIds);
+                targetUsers = userRepository.findAllByGithubIdIn(sharedIds);
 
                 if (targetUsers.isEmpty()) {
                     log.warn("[이슈 생성 알림] 공유 대상자가 존재하지 않음: {}", sharedIds);
@@ -430,7 +409,7 @@ public class AlertServiceImpl implements AlertService {
     }
 
     /**
-     * Jenkins 및 ArgoCD 알림 처리
+     * Devops (Jenkins 및 ArgoCD) 알림 처리
      *      1. app 에서 alertKind와 appName에 대해 parsing
      *      2. 공통 포맷에 담기
      *      3. createAlert 전송
@@ -439,17 +418,17 @@ public class AlertServiceImpl implements AlertService {
      */
     @Override
     public void createDevopsAlert(AlertDevopsRequestDto requestDto) {
-        log.info("[Jenkins 및 ArgoCD 알림 생성] 서비스 진입 : requestDto = {}", requestDto);
+        log.info("[Devops 알림 생성] 서비스 진입 : requestDto.getApp() = {}", requestDto.getApp());
 
         if (requestDto == null || requestDto.getApp() == null || requestDto.getApp().trim().isEmpty()) {
-            log.error("[Jenkins 및 ArgoCD 알림 생성] requestDto 또는 app 필드가 null 또는 빈 값입니다.");
+            log.error("[Devops 알림 생성] requestDto 또는 app 필드가 null 또는 빈 값입니다.");
             throw new BaseException(BaseResponseStatus.INVALID_REQUEST);
         }
 
         // 1. app에서 alertKind와 appName 파싱
         String[] appParts = requestDto.getApp().split("_");
         if (appParts.length != 2) {
-            log.error("[Jenkins 및 ArgoCD 알림 생성] 잘못된 app 형식입니다. 예: jenkins_ssok-bank, app={}", requestDto.getApp());
+            log.error("[Devops 알림 생성] 잘못된 app 형식입니다. 예: jenkins_ssok-bank, app={}", requestDto.getApp());
             throw new BaseException(BaseResponseStatus.INVALID_REQUEST);
         }
 
@@ -470,14 +449,14 @@ public class AlertServiceImpl implements AlertService {
             createAlert(alertRequest, devopsKind);
 
         } catch (IllegalArgumentException e) {
-            log.error("[Jenkins 및 ArgoCD 알림 생성] 지원하지 않는 AlertKind입니다: {}", kindStr, e);
+            log.error("[Devops 알림 생성] 지원하지 않는 AlertKind입니다: {}", kindStr, e);
             throw new BaseException(BaseResponseStatus.UNSUPPORTED_ALERT_KIND);
         } catch (Exception e) {
-            log.error("[Jenkins 및 Ar고CD 알림 생성] 알림 생성 중 예외 발생", e);
+            log.error("[Devops 알림 생성] 알림 생성 중 예외 발생", e);
             throw new BaseException(BaseResponseStatus.ALERT_CREATE_FAILED);
         }
 
-        log.info("[Jenkins 및 ArgoCD 알림 생성] 서비스 처리 완료");
+        log.info("[Devops 알림 생성] 서비스 처리 완료");
     }
 
     /**

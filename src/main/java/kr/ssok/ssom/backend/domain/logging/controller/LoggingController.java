@@ -6,6 +6,7 @@ import kr.ssok.ssom.backend.domain.logging.dto.*;
 import kr.ssok.ssom.backend.domain.logging.service.LoggingService;
 import kr.ssok.ssom.backend.domain.user.security.principal.UserPrincipal;
 import kr.ssok.ssom.backend.global.dto.LogSummaryMessageDto;
+import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
@@ -65,6 +66,13 @@ public class LoggingController {
                                 @RequestParam(value = "app", required = false) String appFilter,
                                 @RequestParam(value = "level", required = false) String levelFilter,
                                 HttpServletResponse response) {
+        
+        // 인증되지 않은 사용자 처리
+        if (userPrincipal == null) {
+            log.error("SSE 구독 실패 - 인증되지 않은 사용자");
+            throw new BaseException(BaseResponseStatus.UNAUTHORIZED);
+        }
+        
         return loggingService.subscribe(userPrincipal.getEmployeeId(), appFilter, levelFilter, response);
     }
 

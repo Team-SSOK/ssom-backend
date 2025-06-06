@@ -1,6 +1,8 @@
 package kr.ssok.ssom.backend.domain.issue.service.Impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import kr.ssok.ssom.backend.domain.alert.service.AlertService;
+import kr.ssok.ssom.backend.domain.alert.dto.AlertIssueRequestDto;
 import kr.ssok.ssom.backend.domain.issue.dto.*;
 import kr.ssok.ssom.backend.domain.issue.entity.Issue;
 import kr.ssok.ssom.backend.domain.issue.entity.constant.IssueStatus;
@@ -43,6 +45,7 @@ public class IssueServiceImpl implements IssueService {
     private final UserRepository userRepository;
     private final GitHubWebhookValidator webhookValidator;
     private final ObjectMapper objectMapper;
+    private final AlertService alertService;
     
     /**
      * LLM을 통한 Issue 초안 작성
@@ -112,12 +115,15 @@ public class IssueServiceImpl implements IssueService {
             String issueBody = buildIssueBody(request);
             
             // 4. GitHub API 요청 구성
+            List<String> labels = getDefaultLabels();
             GitHubIssueRequestDto githubRequest = GitHubIssueRequestDto.builder()
                     .title(request.getTitle())
                     .body(issueBody)
                     .assignees(assigneeGithubIds)
-                    .labels(getDefaultLabels())
+                    .labels(labels)
                     .build();
+            
+            log.info("GitHub Issue 생성 요청 - 담당자: {}, 라벨: {}", assigneeGithubIds, labels);
             
             // 5. GitHub API 호출 (실패 시 전체 트랜잭션 롤백)
             GitHubIssueResponseDto githubResponse;
@@ -295,9 +301,15 @@ public class IssueServiceImpl implements IssueService {
                 return;
             }
             
-            // 6. 액션별 처리
+            // 6. ssom 라벨이 있는 Issue인지 확인 (SSOM에서 생성한 Issue인지 검증)
+            if (!isSsomIssue(issue)) {
+                log.info("ssom 라벨이 없는 Issue - Issue 번호: {} (알림 처리 건너뜀)", issue.getNumber());
+                return;
+            }
+            
+            // 7. 액션별 처리
             String action = webhook.getAction();
-            log.info("GitHub Issue {} 이벤트 처리 - Issue 번호: {}, 제목: {}", 
+            log.info("SSOM GitHub Issue {} 이벤트 처리 - Issue 번호: {}, 제목: {}", 
                     action, issue.getNumber(), issue.getTitle());
             
             switch (action) {
@@ -330,6 +342,18 @@ public class IssueServiceImpl implements IssueService {
     }
     
     /**
+     * SSOM에서 생성한 Issue인지 확인 (ssom 라벨 여부로 판단)
+     */
+    private boolean isSsomIssue(GitHubWebhookIssueDto issue) {
+        if (issue.getLabels() == null || issue.getLabels().isEmpty()) {
+            return false;
+        }
+        
+        return issue.getLabels().stream()
+                .anyMatch(label -> "ssom".equals(label.getName()));
+    }
+    
+    /**
      * 우리 Repository에서 온 이벤트인지 확인
      */
     private boolean isOurRepository(GitHubWebhookRepositoryDto repository) {
@@ -347,12 +371,14 @@ public class IssueServiceImpl implements IssueService {
     private void handleIssueOpened(GitHubWebhookIssueDto issueDto) {
         log.info("Issue 생성 이벤트 처리 - Issue 번호: {}", issueDto.getNumber());
         
+        // 담당자들에게 알림 전송
+        sendIssueNotificationToAssignees(issueDto, "새로운 Issue가 생성되었습니다");
+        
         // 우리가 생성한 Issue가 아닌 경우 (외부에서 직접 생성한 Issue)
-        // 현재는 로그만 남기고 특별한 처리 안함
         Issue existingIssue = issueRepository.findByGithubIssueNumber(issueDto.getNumber()).orElse(null);
         
         if (existingIssue == null) {
-            log.info("외부에서 직접 생성된 Issue - Issue 번호: {} (현재 DB 동기화 안함)", issueDto.getNumber());
+            log.info("외부에서 직접 생성된 SSOM Issue - Issue 번호: {} (현재 DB 동기화 안함)", issueDto.getNumber());
         } else {
             log.info("우리가 생성한 Issue의 생성 완료 알림 - Issue 번호: {}", issueDto.getNumber());
         }
@@ -363,6 +389,10 @@ public class IssueServiceImpl implements IssueService {
      */
     private void handleIssueClosed(GitHubWebhookIssueDto issueDto) {
         log.info("Issue 종료 이벤트 처리 - Issue 번호: {}", issueDto.getNumber());
+        
+        // 담당자들에게 알림 전송
+        sendIssueNotificationToAssignees(issueDto, "Issue가 종료되었습니다");
+        
         syncIssueStatus(issueDto.getNumber(), "closed");
     }
     
@@ -371,6 +401,10 @@ public class IssueServiceImpl implements IssueService {
      */
     private void handleIssueReopened(GitHubWebhookIssueDto issueDto) {
         log.info("Issue 재오픈 이벤트 처리 - Issue 번호: {}", issueDto.getNumber());
+        
+        // 담당자들에게 알림 전송
+        sendIssueNotificationToAssignees(issueDto, "Issue가 재오픈되었습니다");
+        
         syncIssueStatus(issueDto.getNumber(), "open");
     }
     
@@ -382,6 +416,62 @@ public class IssueServiceImpl implements IssueService {
         
         // TODO: 필요시 Issue 제목/설명 업데이트 로직 추가 가능
         // 현재는 상태 변경만 처리하므로 수정 이벤트는 로그만 남김
+    }
+    
+    /**
+     * Issue 담당자들에게 알림 전송
+     */
+    private void sendIssueNotificationToAssignees(GitHubWebhookIssueDto issueDto, String message) {
+        try {
+            // GitHub 담당자 ID들을 SSOM 사용자 ID로 변환
+            List<String> assigneeEmployeeIds = convertGitHubAssigneesToEmployeeIds(issueDto.getAssignees());
+            
+            if (assigneeEmployeeIds.isEmpty()) {
+                log.info("알림을 보낼 담당자가 없음 - Issue 번호: {}", issueDto.getNumber());
+                return;
+            }
+            
+            // AlertIssueRequestDto 생성
+            AlertIssueRequestDto alertRequest = AlertIssueRequestDto.builder()
+                    .sharedEmployeeIds(assigneeEmployeeIds)
+                    .timestamp(java.time.LocalDateTime.now())
+                    .build();
+            
+            // 알림 전송
+            alertService.createIssueAlert(alertRequest);
+            
+            log.info("Issue 알림 전송 완료 - Issue 번호: {}, 담당자 수: {}, 메시지: {}", 
+                    issueDto.getNumber(), assigneeEmployeeIds.size(), message);
+            
+        } catch (Exception e) {
+            log.error("Issue 알림 전송 실패 - Issue 번호: {}, 오류: {}", issueDto.getNumber(), e.getMessage());
+        }
+    }
+    
+    /**
+     * GitHub 담당자 ID들을 SSOM 사용자 ID로 변환
+     */
+    private List<String> convertGitHubAssigneesToEmployeeIds(List<GitHubWebhookUserDto> assignees) {
+        if (assignees == null || assignees.isEmpty()) {
+            return List.of();
+        }
+        
+        List<String> employeeIds = new ArrayList<>();
+        
+        for (GitHubWebhookUserDto assignee : assignees) {
+            String githubId = assignee.getLogin();
+            if (githubId != null) {
+                User user = userRepository.findByGithubId(githubId).orElse(null);
+                if (user != null) {
+                    employeeIds.add(user.getEmployeeId());
+                    log.debug("GitHub ID {} -> 사원번호 {} 변환 완료", githubId, user.getEmployeeId());
+                } else {
+                    log.warn("GitHub ID에 해당하는 SSOM 사용자를 찾을 수 없음: {}", githubId);
+                }
+            }
+        }
+        
+        return employeeIds;
     }
     
     /**
@@ -477,18 +567,22 @@ public class IssueServiceImpl implements IssueService {
         body.append("## 📋 추가 정보\n");
         body.append("- **생성자:** SSOM 시스템\n");
         body.append("- **생성 시간:** ").append(java.time.LocalDateTime.now()).append("\n");
-        body.append("- **로그 개수:** ").append(request.getLogIds().size()).append("개\n\n");
+        body.append("- **로그 개수:** ").append(request.getLogIds().size()).append("개\n");
+        body.append("- **라벨:** `ssom`, `bug`\n\n");
         
         body.append("---\n");
-        body.append("*이 Issue는 SSOM 백엔드 시스템에서 LLM을 통해 자동으로 생성되었습니다.*");
+        body.append("*이 Issue는 SSOM 백엔드 시스템에서 LLM을 통해 자동으로 생성되었습니다.*\n");
+        body.append("*`ssom` 라벨을 통해 SSOM 시스템에서 생성된 Issue임을 식별할 수 있습니다.*");
         
         return body.toString();
     }
     
     /**
      * 기본 라벨 목록 반환
+     * - ssom: SSOM 시스템에서 생성된 Issue임을 식별하기 위한 라벨
+     * - bug: 기본적으로 버그 관련 Issue로 분류
      */
     private List<String> getDefaultLabels() {
-        return List.of("bug");
+        return List.of("ssom", "bug");
     }
 }

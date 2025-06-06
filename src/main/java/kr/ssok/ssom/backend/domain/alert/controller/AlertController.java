@@ -3,6 +3,7 @@ package kr.ssok.ssom.backend.domain.alert.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import kr.ssok.ssom.backend.domain.alert.dto.*;
 import kr.ssok.ssom.backend.domain.alert.service.AlertService;
@@ -35,8 +36,10 @@ public class AlertController {
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(@Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal userPrincipal,
                                 @RequestHeader(value = "Last-Event-ID", required = false, defaultValue = "") String lastEventId,
+                                HttpServletRequest request,
                                 HttpServletResponse response) {
-        log.info("[알림 SSE 구독] 컨트롤러 진입");
+        log.info("[알림 SSE 구독] 컨트롤러 진입 - User: {}",
+                userPrincipal != null ? userPrincipal.getEmployeeId() : "null");
 
         // 인증되지 않은 사용자 처리
         if (userPrincipal == null) {
@@ -44,13 +47,73 @@ public class AlertController {
             throw new BaseException(BaseResponseStatus.UNAUTHORIZED);
         }
 
-        // SSE 응답 헤더 설정
-        response.setHeader("Cache-Control", "no-cache");
-        response.setHeader("Connection", "keep-alive");
-        response.setHeader("Content-Type", "text/event-stream; charset=UTF-8");
-        response.setHeader("X-Accel-Buffering", "no");
+        // SSE 전용 응답 헤더 설정 - 브라우저 호환성 향상
+        setupSseHeaders(response);
+
+        // 클라이언트 정보 로깅 (디버깅용)
+        logClientInfo(request, userPrincipal.getEmployeeId());
 
         return alertService.subscribe(userPrincipal.getEmployeeId(), lastEventId, response);
+    }
+
+    /**
+     * SSE 전용 응답 헤더 설정
+     */
+    private void setupSseHeaders(HttpServletResponse response) {
+        // 캐시 방지
+        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
+        response.setHeader("Expires", "0");
+
+        // 연결 유지
+        response.setHeader("Connection", "keep-alive");
+
+        // SSE 관련 헤더
+        response.setHeader("Content-Type", "text/event-stream; charset=UTF-8");
+        response.setHeader("Access-Control-Allow-Origin", "*");
+        response.setHeader("Access-Control-Allow-Headers", "Last-Event-ID");
+
+        // Nginx 등 프록시 버퍼링 방지
+        response.setHeader("X-Accel-Buffering", "no");
+    }
+
+    /**
+     * 클라이언트 정보 로깅 (디버깅용)
+     */
+    private void logClientInfo(HttpServletRequest request, String employeeId) {
+        String userAgent = request.getHeader("User-Agent");
+        String clientIp = getClientIpAddress(request);
+
+        log.info("[SSE 클라이언트 정보] employeeId: {}, IP: {}, UserAgent: {}",
+                employeeId, clientIp, userAgent);
+    }
+
+    /**
+     * 클라이언트 실제 IP 주소 추출
+     */
+    private String getClientIpAddress(HttpServletRequest request) {
+        String[] headerNames = {
+                "X-Forwarded-For",
+                "Proxy-Client-IP",
+                "WL-Proxy-Client-IP",
+                "HTTP_X_FORWARDED_FOR",
+                "HTTP_X_FORWARDED",
+                "HTTP_X_CLUSTER_CLIENT_IP",
+                "HTTP_CLIENT_IP",
+                "HTTP_FORWARDED_FOR",
+                "HTTP_FORWARDED",
+                "HTTP_VIA",
+                "REMOTE_ADDR"
+        };
+
+        for (String header : headerNames) {
+            String ip = request.getHeader(header);
+            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+                return ip.split(",")[0].trim();
+            }
+        }
+
+        return request.getRemoteAddr();
     }
 
     @Operation(summary = "전체 알림 목록 조회", description = "개별 사용자의 전체 알림 목록을 조회합니다.")
@@ -85,6 +148,7 @@ public class AlertController {
         alertService.deleteAlert(request);
         return new BaseResponse<>(BaseResponseStatus.SUCCESS);
     }
+
     /*********************************************************************************************************************/
     @Operation(summary = "그라파나 알림", description = "그라파나 알림 데이터를 받아 앱으로 전송합니다.")
     @PostMapping("/grafana")

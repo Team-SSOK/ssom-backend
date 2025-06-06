@@ -2,6 +2,7 @@ package kr.ssok.ssom.backend.global.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,6 +26,9 @@ public class JacksonConfig {
         // Java 8 Time API 지원
         objectMapper.registerModule(new JavaTimeModule());
         
+        // LocalDateTime을 ISO 8601 문자열로 직렬화 (배열 형태가 아닌)
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        
         // 기본 camelCase 유지 (GitHub Webhook용으로만 snake_case 사용하도록 분리)
         // objectMapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
         
@@ -44,6 +48,9 @@ public class JacksonConfig {
         
         // Java 8 Time API 지원
         objectMapper.registerModule(new JavaTimeModule());
+        
+        // LocalDateTime을 ISO 8601 문자열로 직렬화 (배열 형태가 아닌)
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         
         // snake_case 속성명을 camelCase로 자동 변환 (GitHub Webhook용)
         objectMapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);

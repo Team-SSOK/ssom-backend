@@ -47,15 +47,22 @@ public interface LoggingService {
      * @param logId 로그 아이디
      * @return DB로부터 조회한 LLM 요약 데이터
      */
-    LogSummaryMessageDto getLogInfo(String logId);
+    LogSummaryMessageDto getLogAnalysisInfo(String logId);
 
     /**
      * 특정 로그에 대한 새 LLM 요약 데이터 생성
      * @param request 로그
      * @return LLM으로부터 생성한 요약 데이터
      */
-    LogSummaryMessageDto summarizeLog(LogDto request);
+    LogSummaryMessageDto analyzeLog(LogDto request);
 
+
+    /**
+     * 로그 ID로 로그 데이터 조회
+     * @param logId 로그 ID
+     * @return 로그 데이터
+     */
+    LogDto getLogById(String logId);
 
     /**
      * 로그 ID 목록으로 로그 데이터 조회 (Issue 생성용)

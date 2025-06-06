@@ -12,6 +12,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -50,10 +51,19 @@ public class SecurityConfig {
             "/api/alert/opensearch",
             "/api/alert/devops",
             "/api/alert/",
-            "/api/issue/webhook/github",
-            "/api/logging/opensearch",
-            "/"
+            "/api/issues/webhook/github",
+            "/",
+            "/api/logging/subscribe",
+            "/api/alert/subscribe",
+            "/api/logging/opensearch"
     );
+
+    /**
+     * 비동기 처리를 위한 Security Context 전파 설정
+     */
+    static {
+        SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
+    }
 
     /**
      * JWT 인증 필터를 Bean으로 등록 (순환참조 방지)

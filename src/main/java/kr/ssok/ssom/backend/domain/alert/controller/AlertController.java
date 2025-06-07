@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import kr.ssok.ssom.backend.domain.alert.dto.*;
 import kr.ssok.ssom.backend.domain.alert.service.AlertService;
 import kr.ssok.ssom.backend.domain.user.security.principal.UserPrincipal;
+import kr.ssok.ssom.backend.global.dto.GitHubIssueResponseDto;
 import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
@@ -133,11 +134,11 @@ public class AlertController {
 
     @Operation(summary = "알림 개별 상태 변경", description = "알림의 읽음 여부를 변경합니다.")
     @PatchMapping("/modify")
-    public BaseResponse<Void> modifyAlertStatus(@RequestBody AlertModifyRequestDto request) {
+    public BaseResponse<AlertResponseDto> modifyAlertStatus(@RequestBody AlertModifyRequestDto request) {
         log.info("[알림 개별 상태 변경] 컨트롤러 진입");
 
-        alertService.modifyAlertStatus(request);
-        return new BaseResponse<>(BaseResponseStatus.SUCCESS);
+        return new BaseResponse<>(BaseResponseStatus.SUCCESS,
+                alertService.modifyAlertStatus(request));
     }
 
     @Operation(summary = "알림 개별 삭제", description = "알림을 삭제 처리합니다.")
@@ -172,10 +173,10 @@ public class AlertController {
                 .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
 
-    @Operation(summary = "이슈 생성 알림", description = "이슈 생성 시 앱으로 알림을 전송합니다.")
+    @Operation(summary = "Github 이슈 알림", description = "SSOM 에서 등록한 Github 이슈 opened/reopened/closed 시 앱으로 알림을 전송합니다.")
     @PostMapping("/issue")
     public ResponseEntity<BaseResponse<Void>> sendIssueAlert(@RequestBody AlertIssueRequestDto requestDto) {
-        log.info("[이슈 생성 알림] 컨트롤러 진입");
+        log.info("[Github 이슈 알림] 컨트롤러 진입");
 
         alertService.createIssueAlert(requestDto);
         return ResponseEntity

@@ -15,6 +15,7 @@ import kr.ssok.ssom.backend.domain.user.entity.User;
 import kr.ssok.ssom.backend.domain.user.repository.UserRepository;
 import kr.ssok.ssom.backend.global.client.FirebaseClient;
 import kr.ssok.ssom.backend.global.dto.FcmMessageRequestDto;
+import kr.ssok.ssom.backend.global.dto.GitHubIssueResponseDto;
 import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
@@ -201,8 +202,9 @@ public class AlertServiceImpl implements AlertService {
      * @param request AlertModifyRequestDto
      */
     @Override
-    public void modifyAlertStatus(AlertModifyRequestDto request) {
-        log.info("[알림 개별 상태 변경] 서비스 진입 : request = {}", request);
+    public AlertResponseDto modifyAlertStatus(AlertModifyRequestDto request) {
+        log.info("[알림 개별 상태 변경] 서비스 진입 : alertStatusId = {}, isRead = {}"
+                , request.getAlertStatusId(), request.isRead());
 
         // 1. 요청값 검증
         if (request == null || request.getAlertStatusId() == null) {
@@ -226,6 +228,8 @@ public class AlertServiceImpl implements AlertService {
             }
 
             log.info("[알림 개별 상태 변경] 변경 완료 : alertStatusId = {}, isRead = {}", request.getAlertStatusId(), request.isRead());
+
+            return AlertResponseDto.from(status);
 
         } catch (BaseException e) {
             throw e;
@@ -386,42 +390,66 @@ public class AlertServiceImpl implements AlertService {
      * 이슈 알림 처리
      *      1. createAlert 전송하지 않음 (user가 지정돼있으므로.)
      *
-     * @param requestDto : String, 리스트
+     * @param requestDto
      */
     @Override
     public void createIssueAlert(AlertIssueRequestDto requestDto) {
-        log.info("[이슈 생성 알림] 서비스 진입 : requestDto = {}", requestDto);
+        log.info("[Github 이슈 알림] 서비스 진입 : requestDto = {}", requestDto);
 
         try {
-            // 1. Alert 저장
+            // 0. 'ssom' 또는 'SSOM' 라벨이 있는지 확인
+            boolean hasSsomLabel = requestDto.getIssue().getLabels().stream()
+                    .anyMatch(label -> label.getName().equalsIgnoreCase("ssom"));
+
+            if (!hasSsomLabel) {
+                log.info("[Github 이슈 알림] 'ssom' 라벨이 없어 알림을 생성하지 않음");
+                return;
+            }
+
+            // 1. action 에 따라 title 설정
+            String alertTitle;
+            switch (requestDto.getAction()) {
+                case "opened":
+                    alertTitle = "[ISSUE] Opened";
+                    break;
+                case "reopened":
+                    alertTitle = "[ISSUE] Reopened";
+                    break;
+                case "closed":
+                    alertTitle = "[ISSUE] Closed";
+                    break;
+                default:
+                    log.warn("[Github 이슈 알림] 알림 전송으로 지원하지 않는 action 값: {}", requestDto.getAction());
+                    return;
+            }
+
+            // 2. Alert 저장
             Alert alert = Alert.builder()
                     .id(AlertKind.ISSUE + "_noNeedId")
-                    .title("[ISSUE] 이슈 공유")
-                    .message("새로운 이슈가 공유되었습니다.")
+                    .title(alertTitle)
+                    .message("Github 이슈가 공유되었습니다.")
                     .kind(AlertKind.ISSUE)
-                    .timestamp(requestDto.getTimestamp().toString())
+                    .timestamp(requestDto.getIssue().getCreatedAt())
                     .build();
             alertRepository.save(alert);
 
-            // 2. 알림 대상자 조회
-            List<User> targetUsers = new ArrayList<>();
-            //List<String> sharedIds = requestDto.getSharedEmployeeIds();
-            List<String> sharedIds = requestDto.getAssigneeGithubIds();
+            // 3. 알림 대상자 조회
+            List<String> sharedLogins = requestDto.getIssue().getAssignees().stream()
+                    .map(AlertIssueRequestDto.Assignee::getLogin)
+                    .collect(Collectors.toList());
 
-            if (sharedIds != null && !sharedIds.isEmpty()) {
-                //targetUsers = userRepository.findAllById(sharedIds);
-                targetUsers = userRepository.findAllByGithubIdIn(sharedIds);
+            if (sharedLogins.isEmpty()) {
+                log.warn("[Github 이슈 알림] 공유 대상자가 지정되지 않음");
+                return;
+            }
 
-                if (targetUsers.isEmpty()) {
-                    log.warn("[이슈 생성 알림] 공유 대상자가 존재하지 않음: {}", sharedIds);
-                    throw new BaseException(BaseResponseStatus.ALERT_TARGET_USER_NOT_FOUND);
-                }
-            } else {
-                log.warn("[이슈 생성 알림] 공유 대상자가 지정되지 않음");
+            List<User> targetUsers = userRepository.findAllByGithubIdIn(sharedLogins);
+            if (targetUsers.isEmpty()) {
+                log.warn("[Github 이슈 알림] 공유 대상자가 존재하지 않음: {}", sharedLogins);
                 throw new BaseException(BaseResponseStatus.ALERT_TARGET_USER_NOT_FOUND);
             }
 
-            // 3. AlertStatus 생성 및 전송
+            // 4. AlertStatus 생성 및 전송
             for (User user : targetUsers) {
                 AlertStatus alertStatus = AlertStatus.builder()
                         .alert(alert)
@@ -434,11 +462,11 @@ public class AlertServiceImpl implements AlertService {
                 sendAlertToUser(user.getId(), responseDto);
             }
 
-            log.info("[이슈 생성 알림] 서비스 처리 완료");
+            log.info("[Github 이슈 알림] 서비스 처리 완료");
         } catch (BaseException e) {
             throw e;
         } catch (Exception e) {
-            log.error("[이슈 생성 알림] 처리 중 예외 발생", e);
+            log.error("[Github 이슈 알림] 처리 중 예외 발생", e);
             throw new BaseException(BaseResponseStatus.ALERT_CREATE_FAILED);
         }
     }

@@ -9,6 +9,7 @@ import kr.ssok.ssom.backend.domain.user.entity.Department;
 import kr.ssok.ssom.backend.domain.user.entity.User;
 import kr.ssok.ssom.backend.domain.user.security.jwt.JwtTokenProvider;
 import kr.ssok.ssom.backend.domain.user.repository.UserRepository;
+import kr.ssok.ssom.backend.domain.user.repository.BiometricInfoRepository;
 import kr.ssok.ssom.backend.domain.user.service.UserService;
 import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
@@ -35,6 +36,7 @@ public class UserServiceImpl implements UserService {
 
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
+    private final BiometricInfoRepository biometricInfoRepository;
 
     // 회원가입
     @Override
@@ -123,19 +125,28 @@ public class UserServiceImpl implements UserService {
 
         // Refresh Token을 Redis에 저장
         String refreshTokenKey = REFRESH_TOKEN_PREFIX + user.getId();
+        long expirationTime = jwtTokenProvider.getTokenExpirationTime(refreshToken);
         redisTemplate.opsForValue().set(
                 refreshTokenKey,
                 refreshToken,
-                jwtTokenProvider.getTokenExpirationTime(refreshToken),
+                expirationTime,
                 TimeUnit.SECONDS
         );
 
         log.info("로그인 성공 - 사원번호: {}, 부서: {}", user.getId(), user.getDepartment());
 
+        // 생체인증 등록 여부 확인
+        boolean biometricEnabled = checkBiometricEnabled(user.getId());
+
         // 응답 생성
         return LoginResponseDto.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
+                .username(user.getUsername())
+                .department(user.getDepartment().getPrefix()) // 부서 정보 prefix 값으로 응답
+                .expiresIn(expirationTime)
+                .biometricEnabled(biometricEnabled)
+                .lastLoginAt(java.time.LocalDateTime.now().toString())
                 .build();
     }
 
@@ -177,17 +188,26 @@ public class UserServiceImpl implements UserService {
         redisTemplate.delete(refreshTokenKey);
 
         // 새 Refresh Token을 Redis에 저장
+        long expirationTime = jwtTokenProvider.getTokenExpirationTime(newRefreshToken);
         redisTemplate.opsForValue().set(
                 refreshTokenKey,
                 newRefreshToken,
-                jwtTokenProvider.getTokenExpirationTime(newRefreshToken),
+                expirationTime,
                 TimeUnit.SECONDS
         );
+
+        // 생체인증 등록 여부 확인
+        boolean biometricEnabled = checkBiometricEnabled(user.getId());
 
         // 응답 생성
         return LoginResponseDto.builder()
                 .accessToken(newAccessToken)
                 .refreshToken(newRefreshToken)
+                .username(user.getUsername())
+                .department(user.getDepartment().getPrefix())
+                .expiresIn(expirationTime)
+                .biometricEnabled(biometricEnabled)
+                .lastLoginAt(java.time.LocalDateTime.now().toString())
                 .build();
     }
 
@@ -278,5 +298,12 @@ public class UserServiceImpl implements UserService {
         userRepository.save(user);
         
         log.info("비밀번호 변경 성공 - 사원번호: {}", employeeId);
+    }
+
+    /**
+     * 생체인증 등록 여부 확인
+     */
+    private boolean checkBiometricEnabled(String employeeId) {
+        return biometricInfoRepository.existsByEmployeeIdAndIsActiveTrue(employeeId);
     }
 }

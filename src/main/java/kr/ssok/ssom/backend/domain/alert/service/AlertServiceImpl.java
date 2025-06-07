@@ -416,8 +416,8 @@ public class AlertServiceImpl implements AlertService {
                     alertTitle = "[ISSUE] Closed";
                     break;
                 default:
-                    log.warn("[Github 이슈 알림] 지원하지 않는 action 값: {}", requestDto.getAction());
-                    throw new BaseException(BaseResponseStatus.INVALID_ISSUE_ACTION);
+                    log.warn("[Github 이슈 알림] 알림 전송으로 지원하지 않는 action 값: {}", requestDto.getAction());
+                    return;
             }
 
             // 2. Alert 저장

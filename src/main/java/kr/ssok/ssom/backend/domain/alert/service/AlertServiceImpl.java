@@ -203,7 +203,8 @@ public class AlertServiceImpl implements AlertService {
      */
     @Override
     public AlertResponseDto modifyAlertStatus(AlertModifyRequestDto request) {
-        log.info("[알림 개별 상태 변경] 서비스 진입 : request = {}", request);
+        log.info("[알림 개별 상태 변경] 서비스 진입 : alertStatusId = {}, isRead = {}"
+                , request.getAlertStatusId(), request.isRead());
 
         // 1. 요청값 검증
         if (request == null || request.getAlertStatusId() == null) {

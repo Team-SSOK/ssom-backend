@@ -3,6 +3,7 @@ package kr.ssok.ssom.backend.domain.alert.service;
 import jakarta.servlet.http.HttpServletResponse;
 import kr.ssok.ssom.backend.domain.alert.dto.*;
 import kr.ssok.ssom.backend.domain.alert.entity.constant.AlertKind;
+import kr.ssok.ssom.backend.global.dto.GitHubIssueResponseDto;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;

@@ -83,4 +83,6 @@ public class UserController {
         
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, userInfo));
     }
+
+    // 부서별 유저 정보
 }

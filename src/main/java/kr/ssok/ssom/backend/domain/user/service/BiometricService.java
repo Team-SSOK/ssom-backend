@@ -10,12 +10,14 @@ import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,6 +32,10 @@ public class BiometricService {
     private final UserService userService;
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
+    private final RedisTemplate<String, String> redisTemplate;
+
+    // Refresh Token을 저장하는 키 prefix
+    private static final String REFRESH_TOKEN_PREFIX = "refresh:token:";
 
     /**
      * 생체인증 상태 확인 (사용자 ID 기반)
@@ -150,6 +156,18 @@ public class BiometricService {
             String accessToken = jwtTokenProvider.createAccessToken(user.getId());
             String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
 
+            // 토큰 만료 시간 계산
+            long expirationTime = jwtTokenProvider.getTokenExpirationTime(refreshToken);
+
+            // Refresh Token을 Redis에 저장
+            String refreshTokenKey = REFRESH_TOKEN_PREFIX + user.getId();
+            redisTemplate.opsForValue().set(
+                    refreshTokenKey,
+                    refreshToken,
+                    expirationTime,
+                    TimeUnit.SECONDS
+            );
+
             // 7. 마지막 사용 시간 업데이트
             biometricInfo.setLastUsedAt(LocalDateTime.now());
             biometricInfoRepository.save(biometricInfo);
@@ -166,7 +184,10 @@ public class BiometricService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .username(user.getUsername())
-                .department(user.getDepartment().name())
+                .department(user.getDepartment().getPrefix())
+                .expiresIn(expirationTime)
+                .biometricEnabled(true) // 생체인증으로 로그인했으므로 true
+                .lastLoginAt(LocalDateTime.now().toString())
                 .build();
 
         } catch (BaseException e) {

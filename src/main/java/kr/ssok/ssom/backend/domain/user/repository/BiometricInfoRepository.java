@@ -45,6 +45,11 @@ public interface BiometricInfoRepository extends JpaRepository<BiometricInfo, Lo
             String employeeId, String deviceId);
 
     /**
+     * 사용자의 생체인증 등록 여부 확인 (전체 기기)
+     */
+    boolean existsByEmployeeIdAndIsActiveTrue(String employeeId);
+
+    /**
      * 사용자의 활성화된 생체인증 정보 개수 조회
      */
     int countByEmployeeIdAndIsActiveTrue(String employeeId);

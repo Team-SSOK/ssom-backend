@@ -1,5 +1,6 @@
 package kr.ssok.ssom.backend.domain.alert.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.ssok.ssom.backend.domain.alert.entity.Alert;
 import kr.ssok.ssom.backend.domain.alert.entity.AlertStatus;
@@ -20,7 +21,10 @@ public class AlertResponseDto {
     private String title;
     private String message;
     private String kind;
+
+    @JsonProperty("isRead")
     private boolean isRead;
+
     private String timestamp;
     private LocalDateTime createdAt;
     private String employeeId;

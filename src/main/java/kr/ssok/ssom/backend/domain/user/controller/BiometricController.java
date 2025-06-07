@@ -25,23 +25,15 @@ public class BiometricController {
 
     /**
      * 생체인증 상태 확인
-     * GET /api/biometric/status/{employeeId}
+     * GET /api/biometric/status
      */
-    @GetMapping("/status/{employeeId}")
+    @GetMapping("/status")
     public ResponseEntity<BaseResponse<BiometricStatusDto>> checkBiometricStatus(
-            @PathVariable String employeeId,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
+
+        log.info("생체인증 상태 확인 API 호출: employeeId={}", userPrincipal.getEmployeeId());
         
-        log.info("생체인증 상태 확인 API 호출: employeeId={}, requestBy={}", employeeId, userPrincipal.getEmployeeId());
-        
-        // 본인 확인 (본인만 조회 가능)
-        if (!employeeId.equals(userPrincipal.getEmployeeId())) {
-            log.warn("생체인증 상태 조회 권한 없음 - target: {}, requester: {}", employeeId, userPrincipal.getEmployeeId());
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(new BaseResponse<>(BaseResponseStatus.FORBIDDEN));
-        }
-        
-        BiometricStatusDto response = biometricService.checkBiometricStatus(employeeId);
+        BiometricStatusDto response = biometricService.checkBiometricStatus(userPrincipal.getEmployeeId());
         
         return ResponseEntity.ok(
             new BaseResponse<>(BaseResponseStatus.SUCCESS, response)

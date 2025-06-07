@@ -83,4 +83,10 @@ public interface UserRepository extends JpaRepository<User, String> {
     Optional<User> findByGithubId(String githubId);
 
     List<User> findAllByGithubIdIn(List<String> githubIds);
+
+    /**
+     * 모든 사용자를 사원번호 순으로 조회
+     * @return 사원번호 오름차순으로 정렬된 모든 사용자 목록
+     */
+    List<User> findAllByOrderByIdAsc();
 }

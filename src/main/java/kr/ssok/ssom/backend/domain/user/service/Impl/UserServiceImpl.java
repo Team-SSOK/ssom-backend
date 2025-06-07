@@ -5,11 +5,12 @@ import kr.ssok.ssom.backend.domain.user.dto.LoginResponseDto;
 import kr.ssok.ssom.backend.domain.user.dto.PasswordChangeRequestDto;
 import kr.ssok.ssom.backend.domain.user.dto.SignupRequestDto;
 import kr.ssok.ssom.backend.domain.user.dto.UserResponseDto;
+import kr.ssok.ssom.backend.domain.user.dto.UserListResponseDto;
 import kr.ssok.ssom.backend.domain.user.entity.Department;
 import kr.ssok.ssom.backend.domain.user.entity.User;
+import kr.ssok.ssom.backend.domain.user.repository.BiometricInfoRepository;
 import kr.ssok.ssom.backend.domain.user.security.jwt.JwtTokenProvider;
 import kr.ssok.ssom.backend.domain.user.repository.UserRepository;
-import kr.ssok.ssom.backend.domain.user.repository.BiometricInfoRepository;
 import kr.ssok.ssom.backend.domain.user.service.UserService;
 import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
@@ -20,7 +21,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -305,5 +308,24 @@ public class UserServiceImpl implements UserService {
      */
     private boolean checkBiometricEnabled(String employeeId) {
         return biometricInfoRepository.existsByEmployeeIdAndIsActiveTrue(employeeId);
+    }
+
+    /**
+     * 모든 사용자 목록 조회
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserListResponseDto> getAllUsers() {
+        log.info("모든 사용자 목록 조회 요청");
+
+        List<User> users = userRepository.findAllByOrderByIdAsc();
+
+        List<UserListResponseDto> userList = users.stream()
+                .map(UserListResponseDto::from)
+                .collect(Collectors.toList());
+
+        log.info("사용자 목록 조회 완료 - 총 {}명", userList.size());
+
+        return userList;
     }
 }

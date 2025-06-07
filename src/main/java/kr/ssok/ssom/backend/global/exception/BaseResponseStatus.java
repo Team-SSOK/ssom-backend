@@ -42,6 +42,8 @@ public enum BaseResponseStatus {
     PIN_CHANGE_AUTH_REQUIRED(false, 4017, "PIN 번호 변경을 위한 인증이 필요합니다.", HttpStatus.UNAUTHORIZED),
     PHONE_NUMBER_MISMATCH(false, 4018, "요청된 전화번호가 사용자 정보와 일치하지 않습니다.", HttpStatus.BAD_REQUEST),
     BIOMETRIC_MAX_ATTEMPTS_EXCEEDED(false, 4019, "생체인증 시도횟수가 초과되었습니다.", HttpStatus.LOCKED),
+    BIOMETRIC_DEVICE_BLOCKED(false, 4020, "디바이스가 차단되었습니다.", HttpStatus.LOCKED),
+    FORBIDDEN(false, 4021, "접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
 
     USER_NOT_FOUND(false, 5011, "사용자를 찾을 수 없습니다."),
     USER_ALREADY_EXISTS(false, 5010, "이미 존재하는 사용자입니다."),

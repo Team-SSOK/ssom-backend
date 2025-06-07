@@ -12,6 +12,7 @@ import kr.ssok.ssom.backend.domain.user.repository.BiometricInfoRepository;
 import kr.ssok.ssom.backend.domain.user.security.jwt.JwtTokenProvider;
 import kr.ssok.ssom.backend.domain.user.repository.UserRepository;
 import kr.ssok.ssom.backend.domain.user.service.UserService;
+import kr.ssok.ssom.backend.domain.user.service.BiometricFailureService;
 import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final BiometricInfoRepository biometricInfoRepository;
+    private final BiometricFailureService biometricFailureService;
 
     // 회원가입
     @Override
@@ -140,6 +142,10 @@ public class UserServiceImpl implements UserService {
 
         // 생체인증 등록 여부 확인
         boolean biometricEnabled = checkBiometricEnabled(user.getId());
+
+        // 일반 로그인 성공 시 생체인증 디바이스 차단 해제
+        biometricFailureService.unblockAllDevicesForUser(user.getId());
+        log.info("일반 로그인 성공으로 모든 디바이스 차단 해제 - 사원번호: {}", user.getId());
 
         // 응답 생성
         return LoginResponseDto.builder()

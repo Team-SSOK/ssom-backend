@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import kr.ssok.ssom.backend.domain.user.dto.*;
 import kr.ssok.ssom.backend.domain.user.security.principal.UserPrincipal;
 import kr.ssok.ssom.backend.domain.user.service.BiometricService;
+import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
@@ -28,9 +29,17 @@ public class BiometricController {
      */
     @GetMapping("/status/{employeeId}")
     public ResponseEntity<BaseResponse<BiometricStatusDto>> checkBiometricStatus(
-            @PathVariable String employeeId) {
+            @PathVariable String employeeId,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
         
-        log.info("생체인증 상태 확인 API 호출: employeeId={}", employeeId);
+        log.info("생체인증 상태 확인 API 호출: employeeId={}, requestBy={}", employeeId, userPrincipal.getEmployeeId());
+        
+        // 본인 확인 (본인만 조회 가능)
+        if (!employeeId.equals(userPrincipal.getEmployeeId())) {
+            log.warn("생체인증 상태 조회 권한 없음 - target: {}, requester: {}", employeeId, userPrincipal.getEmployeeId());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new BaseResponse<>(BaseResponseStatus.FORBIDDEN));
+        }
         
         BiometricStatusDto response = biometricService.checkBiometricStatus(employeeId);
         
@@ -79,12 +88,29 @@ public class BiometricController {
         } catch (Exception e) {
             log.error("생체인증 로그인 실패: {}", e.getMessage(), e);
             
-            // 에러 타입에 따른 적절한 HTTP 상태 코드 반환
-            if (e.getMessage().contains("MAX_ATTEMPTS")) {
-                return ResponseEntity.status(HttpStatus.LOCKED)
-                    .body(new BaseResponse<>(BaseResponseStatus.BIOMETRIC_MAX_ATTEMPTS_EXCEEDED));
+            // BaseException에서 구체적인 예외 타입 확인
+            if (e instanceof BaseException) {
+                BaseException baseException = (BaseException) e;
+                BaseResponseStatus status = baseException.getStatus();
+                
+                // 디바이스 차단 상태
+                if (status == BaseResponseStatus.BIOMETRIC_DEVICE_BLOCKED) {
+                    return ResponseEntity.status(HttpStatus.LOCKED)
+                        .body(new BaseResponse<>(BaseResponseStatus.BIOMETRIC_DEVICE_BLOCKED));
+                }
+                
+                // 최대 시도 횟수 초과
+                if (status == BaseResponseStatus.BIOMETRIC_MAX_ATTEMPTS_EXCEEDED) {
+                    return ResponseEntity.status(HttpStatus.LOCKED)
+                        .body(new BaseResponse<>(BaseResponseStatus.BIOMETRIC_MAX_ATTEMPTS_EXCEEDED));
+                }
+                
+                // 기타 생체인증 관련 오류
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new BaseResponse<>(status));
             }
             
+            // 일반적인 예외
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(new BaseResponse<>(BaseResponseStatus.LOGIN_FAILED));
         }
@@ -98,10 +124,18 @@ public class BiometricController {
     public ResponseEntity<BaseResponse<BiometricResponseDto>> deactivateBiometric(
             @RequestParam String employeeId,
             @RequestParam String deviceId,
-            @RequestParam String biometricType) {
+            @RequestParam String biometricType,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
         
-        log.info("생체인증 해제 API 호출: employeeId={}, deviceId={}, type={}", 
-            employeeId, deviceId, biometricType);
+        log.info("생체인증 해제 API 호출: employeeId={}, deviceId={}, type={}, requestBy={}", 
+            employeeId, deviceId, biometricType, userPrincipal.getEmployeeId());
+        
+        // 본인 확인 (본인만 해제 가능)
+        if (!employeeId.equals(userPrincipal.getEmployeeId())) {
+            log.warn("생체인증 해제 권한 없음 - target: {}, requester: {}", employeeId, userPrincipal.getEmployeeId());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new BaseResponse<>(BaseResponseStatus.FORBIDDEN));
+        }
         
         BiometricResponseDto response = biometricService.deactivateBiometric(
             employeeId, deviceId, biometricType);

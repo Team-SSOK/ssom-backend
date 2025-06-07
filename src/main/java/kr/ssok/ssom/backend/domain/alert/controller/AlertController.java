@@ -134,11 +134,11 @@ public class AlertController {
 
     @Operation(summary = "알림 개별 상태 변경", description = "알림의 읽음 여부를 변경합니다.")
     @PatchMapping("/modify")
-    public BaseResponse<Void> modifyAlertStatus(@RequestBody AlertModifyRequestDto request) {
+    public BaseResponse<AlertResponseDto> modifyAlertStatus(@RequestBody AlertModifyRequestDto request) {
         log.info("[알림 개별 상태 변경] 컨트롤러 진입");
 
-        alertService.modifyAlertStatus(request);
-        return new BaseResponse<>(BaseResponseStatus.SUCCESS);
+        return new BaseResponse<>(BaseResponseStatus.SUCCESS,
+                alertService.modifyAlertStatus(request));
     }
 
     @Operation(summary = "알림 개별 삭제", description = "알림을 삭제 처리합니다.")

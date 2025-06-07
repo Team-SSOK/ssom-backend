@@ -202,7 +202,7 @@ public class AlertServiceImpl implements AlertService {
      * @param request AlertModifyRequestDto
      */
     @Override
-    public void modifyAlertStatus(AlertModifyRequestDto request) {
+    public AlertResponseDto modifyAlertStatus(AlertModifyRequestDto request) {
         log.info("[알림 개별 상태 변경] 서비스 진입 : request = {}", request);
 
         // 1. 요청값 검증
@@ -227,6 +227,8 @@ public class AlertServiceImpl implements AlertService {
             }
 
             log.info("[알림 개별 상태 변경] 변경 완료 : alertStatusId = {}, isRead = {}", request.getAlertStatusId(), request.isRead());
+
+            return AlertResponseDto.from(status);
 
         } catch (BaseException e) {
             throw e;

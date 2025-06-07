@@ -11,7 +11,7 @@ import java.util.List;
 public interface AlertService {
     SseEmitter subscribe(String username, String lastEventId, HttpServletResponse response);
     List<AlertResponseDto> getAllAlertsForUser(String employeeId);
-    void modifyAlertStatus(AlertModifyRequestDto request);
+    AlertResponseDto modifyAlertStatus(AlertModifyRequestDto request);
     void deleteAlert(AlertModifyRequestDto request);
 
     void createGrafanaAlert(AlertGrafanaRequestDto requestDto);

@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class AlertResponseDto {
     private Long alertId;
+    private Long alertStatusId;
     private String id;
     private String title;
     private String message;
@@ -27,7 +28,8 @@ public class AlertResponseDto {
     public static AlertResponseDto from(AlertStatus status) {
         Alert alert = status.getAlert();
         return AlertResponseDto.builder()
-                .alertId(alert.getAlertId())            // 예 : 1
+                .alertId(alert.getAlertId())                // 예 : 1
+                .alertStatusId(status.getAlertStatusId())   // 예 : 2
                 .id(alert.getId())                      // 예 : "686692198126160f"
                 .title(alert.getTitle())                // 예 : [ERROR] ssok-bank
                 .message(alert.getMessage())            // 예 : "Authentication error: Authorization header is missing or invalid"

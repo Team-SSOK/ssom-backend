@@ -52,13 +52,14 @@ public enum BaseResponseStatus {
     LLM_API_ERROR(false, 6003, "LLM API 호출 중 오류가 발생했습니다."),
     NOT_FOUND_LOG(false, 6004, "로그를 찾을 수 없습니다."),
     GITHUB_API_ERROR(false, 6005, "GitHub API 호출 중 오류가 발생했습니다."),
+    INVALID_ISSUE_ACTION(false, 6006, "지원하지 않는 action 값 입니다."),
 
     // 알림 관련 오류
     SSE_BAD_REQUEST(false, 7001, "SSE 구독을 위한 사용자 정보가 전달되지 않았습니다."),
     SSE_INIT_ERROR(false, 7002, "SSE 구독 처리 중 오류가 발생했습니다."),
     NOT_FOUND_ALERT(false, 7003, "Alert를 찾을 수 없습니다."),
     PARSING_ERROR(false, 7004, "Json Parsing 오류가 발생했습니다."),
-    ALERT_TARGET_USER_NOT_FOUND(false, 7005, "Issue 생성 알림 공유 대상자가 조회되지 않습니다."),
+    ALERT_TARGET_USER_NOT_FOUND(false, 7005, "Github 이슈 알림 공유 대상자가 조회되지 않습니다."),
     ALERT_CREATE_FAILED(false, 7006, "알림 생성 중 오류가 발생했습니다."),
     UNSUPPORTED_ALERT_KIND(false, 7007, "알림 유형이 유효하지 않습니다."),
     REDIS_ACCESS_FAILED(false, 7008, "Redis 접근에 실패하였습니다."),

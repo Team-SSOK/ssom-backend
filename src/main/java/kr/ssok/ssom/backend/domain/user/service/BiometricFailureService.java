@@ -98,4 +98,20 @@ public class BiometricFailureService {
         int failCount = getFailCount(employeeId, deviceId);
         return Math.max(0, MAX_ATTEMPTS - failCount);
     }
+
+    /**
+     * 사용자의 모든 디바이스 차단 해제 (일반 로그인 성공 시 사용)
+     */
+    public void unblockAllDevicesForUser(String employeeId) {
+        String failPattern = BIOMETRIC_FAIL_KEY + employeeId + ":*";
+        String blockPattern = BIOMETRIC_BLOCK_KEY + employeeId + ":*";
+        
+        // 실패 카운트 관련 모든 키 삭제
+        redisTemplate.delete(redisTemplate.keys(failPattern));
+        
+        // 차단 관련 모든 키 삭제  
+        redisTemplate.delete(redisTemplate.keys(blockPattern));
+        
+        log.info("사용자의 모든 디바이스 차단 해제 - 사원번호: {}", employeeId);
+    }
 }

@@ -13,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/users")
@@ -23,8 +25,7 @@ public class UserController {
     // 회원가입
     @PostMapping("/signup")
     public ResponseEntity<BaseResponse<Void>> registerUser(
-            @Valid @RequestBody SignupRequestDto requestDto) {
-        log.info("회원가입 요청 - 전달받은 departmentCode: {}", requestDto.getDepartmentCode());
+            @RequestBody SignupRequestDto requestDto) {
         userService.registerUser(requestDto);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new BaseResponse<>(BaseResponseStatus.REGISTER_USER_SUCCESS));
@@ -82,6 +83,17 @@ public class UserController {
         UserResponseDto userInfo = userService.getUserInfo(userPrincipal.getEmployeeId());
         
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, userInfo));
+    }
+
+    // 모든 사용자 목록 조회
+    @GetMapping("/list")
+    public ResponseEntity<BaseResponse<List<UserListResponseDto>>> getAllUsers() {
+
+        log.info("모든 사용자 목록 조회 요청");
+
+        List<UserListResponseDto> userList = userService.getAllUsers();
+
+        return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, userList));
     }
 
     // 부서별 유저 정보

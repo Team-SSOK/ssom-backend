@@ -43,7 +43,7 @@ public class FcmController {
 
         // 인증되지 않은 사용자 처리
         if (userPrincipal == null) {
-            log.error("알림 SSE 구독 실패 - 인증되지 않은 사용자");
+            log.error("[FCM 토큰 등록 API] - 인증되지 않은 사용자");
             throw new BaseException(BaseResponseStatus.UNAUTHORIZED);
         }
 

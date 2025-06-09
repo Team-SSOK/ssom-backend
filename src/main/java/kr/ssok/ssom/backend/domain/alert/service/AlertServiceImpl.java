@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -179,7 +180,8 @@ public class AlertServiceImpl implements AlertService {
 
         try {
             // 2. 알림 목록 조회
-            List<AlertStatus> alertStatusList = alertStatusRepository.findByUser_Id(employeeId);
+            LocalDateTime oneWeekAgo = LocalDateTime.now().minusWeeks(1);
+            List<AlertStatus> alertStatusList = alertStatusRepository.findByUser_IdAndAlert_CreatedAtAfter(employeeId, oneWeekAgo);
 
             if (alertStatusList.isEmpty()) {
                 log.info("[전체 알림 목록 조회] 알림 없음 : employeeId = {}", employeeId);
@@ -237,6 +239,32 @@ public class AlertServiceImpl implements AlertService {
             log.error("[알림 개별 상태 변경] 처리 중 예외 발생 : alertStatusId = {}, error = {}", request.getAlertStatusId(), e.getMessage(), e);
             throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    /**
+     * 알림 일괄 상태 변경
+     *
+     * @param employeeId
+     */
+    @Transactional
+    @Override
+    public List<AlertResponseDto> modifyAllAlertStatus(String employeeId) {
+        log.info("[알림 일괄 상태 변경] 서비스 진입 : employeeId = {}", employeeId);
+
+        // 1. 해당 유저의 읽지 않은 알림 조회
+        List<AlertStatus> unreadAlerts = alertStatusRepository.findByUser_IdAndIsReadFalse(employeeId);
+
+        // 2. 읽음 처리
+        unreadAlerts.forEach(AlertStatus::markAsRead);
+
+        // 3. 저장은 @Transactional이므로 flush 없이도 commit 시점에 처리됨
+
+        // 4. 전체 알림 상태 다시 조회해서 응답 리스트 구성
+        List<AlertStatus> allAlerts = alertStatusRepository.findByUser_IdOrderByAlert_CreatedAtDesc(employeeId);
+
+        return allAlerts.stream()
+                .map(AlertResponseDto::from)
+                .collect(Collectors.toList());
     }
 
     /**

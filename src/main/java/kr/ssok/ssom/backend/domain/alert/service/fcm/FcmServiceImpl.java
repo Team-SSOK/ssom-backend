@@ -27,29 +27,29 @@ public class FcmServiceImpl implements FcmService {
     /**
      * FCM 토큰을 Redis에 등록
      *
-     * @param userId 사용자 ID
+     * @param employeeId 사용자 ID
      * @param token  FCM 토큰
      */
     @Override
-    public void registerFcmToken(Long userId, String token) {
+    public void registerFcmToken(String employeeId, String token) {
         validateToken(token);
 
         try {
-            String key = userKey(userId);
+            String key = userKey(employeeId);
             String existingToken = redisTemplate.opsForValue().get(key);
 
             if (existingToken != null) {
                 if (existingToken.equals(token)) {
-                    log.debug("동일한 FCM 토큰이 이미 등록되어 있습니다. 갱신하지 않습니다. userId: {}", userId);
+                    log.debug("동일한 FCM 토큰이 이미 등록되어 있습니다. 갱신하지 않습니다. employeeId: {}", employeeId);
                     return;
                 }
-                log.info("기존 토큰({})이 존재하여 삭제 후 재등록합니다. userId: {}", existingToken, userId);
+                log.info("기존 토큰({})이 존재하여 삭제 후 재등록합니다. employeeId: {}", existingToken, employeeId);
                 redisTemplate.delete(key);
             }
 
             // 새로운 토큰 등록 또는 갱신
             redisTemplate.opsForValue().set(key, token, Duration.ofSeconds(ttlSeconds));
-            log.info("FCM 토큰 등록 완료. userId: {}, token: {}", userId, token);
+            log.info("FCM 토큰 등록 완료. employeeId: {}, token: {}", employeeId, token);
 
         } catch (DataAccessException e) {
             log.error("Redis 접근 중 오류 발생: {}", e.getMessage());
@@ -75,10 +75,10 @@ public class FcmServiceImpl implements FcmService {
     /**
      * 사용자 Redis 키 생성
      *
-     * @param userId 사용자 ID
+     * @param employeeId 사용자 ID
      * @return Redis 키
      */
-    private String userKey(Long userId) {
-        return "userfcm:" + userId;
+    private String userKey(String employeeId) {
+        return "userfcm:" + employeeId;
     }
 }

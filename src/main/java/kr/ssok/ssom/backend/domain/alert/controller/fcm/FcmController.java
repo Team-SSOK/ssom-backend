@@ -3,10 +3,12 @@ package kr.ssok.ssom.backend.domain.alert.controller.fcm;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.ssok.ssom.backend.domain.alert.dto.fcm.FcmRegisterRequestDto;
 import kr.ssok.ssom.backend.domain.alert.service.fcm.FcmService;
+import kr.ssok.ssom.backend.domain.user.security.principal.UserPrincipal;
 import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -24,15 +26,15 @@ public class FcmController {
     /**
      * FCM 토큰 등록 API
      *
-     * @param userId   사용자 ID (헤더)
+     * @param userPrincipal
      * @param requestDto 디바이스. FCM 토큰 정보
      * @return 등록 결과 응답
      */
     @PostMapping("/register")
     public ResponseEntity<BaseResponse<Void>> registerFcmToken(
-            @RequestHeader("X-User-Id") String userId,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @RequestBody FcmRegisterRequestDto requestDto) {
-        fcmService.registerFcmToken(Long.parseLong(userId), requestDto.getToken());
+        fcmService.registerFcmToken(userPrincipal.getEmployeeId(), requestDto.getToken());
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
 

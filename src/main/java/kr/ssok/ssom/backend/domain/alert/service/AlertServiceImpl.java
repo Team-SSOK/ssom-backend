@@ -35,7 +35,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 @Slf4j
 public class AlertServiceImpl implements AlertService {
     private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60; // 1시간
@@ -201,6 +200,7 @@ public class AlertServiceImpl implements AlertService {
      *
      * @param request AlertModifyRequestDto
      */
+    @Transactional
     @Override
     public AlertResponseDto modifyAlertStatus(AlertModifyRequestDto request) {
         log.info("[알림 개별 상태 변경] 서비스 진입 : alertStatusId = {}, isRead = {}"
@@ -244,6 +244,7 @@ public class AlertServiceImpl implements AlertService {
      *
      *  @param request AlertModifyRequestDto
      */
+    @Transactional
     @Override
     public void deleteAlert(AlertModifyRequestDto request) {
         log.info("[알림 개별 삭제] 서비스 진입 : request = {}", request);
@@ -528,6 +529,7 @@ public class AlertServiceImpl implements AlertService {
      * @param request
      * @param kind
      */
+    @Transactional
     @Override
     public void createAlert(AlertRequestDto request, AlertKind kind) {
         log.info("[알림 생성] 알림 저장 및 전송 진행 중 ...");

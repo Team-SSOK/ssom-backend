@@ -191,7 +191,7 @@ public class LoggingServiceImpl implements LoggingService {
 
         // 4. 연결 테스트용 초기 이벤트 전송
         try {
-            emitter.send(SseEmitter.event().name("INIT").data("connected"));
+            emitter.send(SseEmitter.event().name("LOGGING_INIT").data("connected"));
         } catch (IOException | IllegalStateException e) {
             emitters.remove(employeeId);
             emitter.completeWithError(e);
@@ -224,7 +224,7 @@ public class LoggingServiceImpl implements LoggingService {
             if (appMatches && levelMatches) {
                 try {
                     e.getEmitter().send(SseEmitter.event()
-                            .name("logging")
+                            .name("LOGGING")
                             .data(logDto));
                 } catch (IOException ex) {
                     deadEmitters.add(employeeId);

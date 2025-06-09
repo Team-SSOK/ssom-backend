@@ -52,11 +52,12 @@ public class SecurityConfig {
             "/actuator/health/liveness",
             "/api/alert/grafana",
             "/api/alert/opensearch",
+            "/api/alert/issue",
             "/api/alert/devops",
+            "/api/fcm/register",
             "/api/alert/",
             "/api/issue/webhook/github",
-            "/",
-            "/api/alert/issue"
+            "/"
     );
 
     /**

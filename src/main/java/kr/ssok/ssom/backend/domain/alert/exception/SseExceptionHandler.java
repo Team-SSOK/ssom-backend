@@ -10,6 +10,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 
 /**
  * SSE 관련 예외를 처리하는 전용 Exception Handler
@@ -54,11 +55,11 @@ public class SseExceptionHandler {
     }
 
     /**
-     * SSE 관련 일반적인 예외 처리
+     * SSE 관련 IOException 처리 (연결 끊김 등)
      */
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<Void> handleSseGeneralException(
-            Exception ex, 
+    @ExceptionHandler(IOException.class)
+    public ResponseEntity<Void> handleSseIOException(
+            IOException ex, 
             HttpServletRequest request,
             HttpServletResponse response) {
         
@@ -69,13 +70,51 @@ public class SseExceptionHandler {
                               "text/event-stream".equals(request.getHeader("Accept")) ||
                               response.getContentType() != null && response.getContentType().contains("text/event-stream");
         
-        if (isSseRequest && response.isCommitted()) {
-            log.error("[SSE 예외 처리] 응답이 커밋된 SSE 요청에서 예외 발생. " +
-                     "요청 URI: {}, 예외: {}", requestUri, ex.getMessage(), ex);
-            return null; // 이미 커밋된 응답에는 처리 불가
+        if (isSseRequest) {
+            if (response.isCommitted()) {
+                log.info("[SSE 예외 처리] SSE 연결에서 IOException 발생 (클라이언트 연결 끊김 가능성). " +
+                        "요청 URI: {}, 예외 메시지: {}", requestUri, ex.getMessage());
+                return null; // 이미 커밋된 응답에는 처리 불가
+            } else {
+                log.warn("[SSE 예외 처리] SSE 요청에서 IOException 발생. " +
+                        "요청 URI: {}, 예외: {}", requestUri, ex.getMessage());
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            }
         }
         
-        // 다른 핸들러에서 처리하도록 예외를 다시 던짐
+        // SSE 요청이 아닌 경우 다른 핸들러에서 처리하도록 예외를 다시 던짐
         throw new RuntimeException(ex);
+    }
+
+    /**
+     * SSE Emitter 관련 예외 처리
+     */
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Void> handleSseIllegalStateException(
+            IllegalStateException ex, 
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        
+        String requestUri = request.getRequestURI();
+        
+        // SSE 요청인지 확인
+        boolean isSseRequest = requestUri.contains("/subscribe") || 
+                              "text/event-stream".equals(request.getHeader("Accept")) ||
+                              response.getContentType() != null && response.getContentType().contains("text/event-stream");
+        
+        if (isSseRequest) {
+            if (response.isCommitted()) {
+                log.warn("[SSE 예외 처리] SSE 요청에서 IllegalStateException 발생. " +
+                        "요청 URI: {}, 예외 메시지: {}", requestUri, ex.getMessage());
+                return null; // 이미 커밋된 응답에는 처리 불가
+            } else {
+                log.warn("[SSE 예외 처리] SSE 요청에서 IllegalStateException 발생. " +
+                        "요청 URI: {}, 예외: {}", requestUri, ex.getMessage());
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            }
+        }
+        
+        // SSE 요청이 아닌 경우 다른 핸들러에서 처리하도록 예외를 다시 던짐
+        throw ex;
     }
 }

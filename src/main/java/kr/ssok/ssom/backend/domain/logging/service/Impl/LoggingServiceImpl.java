@@ -254,7 +254,7 @@ public class LoggingServiceImpl implements LoggingService {
 
             if (loggingList == null || loggingList.isEmpty()) {
                 log.warn("[오픈서치 실시간 로그] Json 파싱 결과 실시간 로그 리스트가 비어있습니다.");
-                throw new BaseException(BaseResponseStatus.PARSING_ERROR);
+                return;
             }
 
             for (LogDto loggingRequest : loggingList) {

@@ -32,6 +32,8 @@ public class FcmServiceImpl implements FcmService {
      */
     @Override
     public void registerFcmToken(String employeeId, String token) {
+        log.info("[FCM 토큰 등록 API] 서비스 진입 - employeeId: {}, token: {}", employeeId, token);
+
         validateToken(token);
 
         try {

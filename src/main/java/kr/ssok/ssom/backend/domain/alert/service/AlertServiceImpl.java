@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -179,7 +180,8 @@ public class AlertServiceImpl implements AlertService {
 
         try {
             // 2. 알림 목록 조회
-            List<AlertStatus> alertStatusList = alertStatusRepository.findByUser_Id(employeeId);
+            LocalDateTime oneWeekAgo = LocalDateTime.now().minusWeeks(1);
+            List<AlertStatus> alertStatusList = alertStatusRepository.findByUser_IdAndAlert_CreatedAtAfter(employeeId, oneWeekAgo);
 
             if (alertStatusList.isEmpty()) {
                 log.info("[전체 알림 목록 조회] 알림 없음 : employeeId = {}", employeeId);

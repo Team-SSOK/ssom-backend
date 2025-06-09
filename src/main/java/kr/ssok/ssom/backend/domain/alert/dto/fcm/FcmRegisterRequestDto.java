@@ -9,5 +9,5 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 public class FcmRegisterRequestDto {
-    private String token;    // FCM 토큰
+    private String fcmToken;    // FCM 토큰
 }

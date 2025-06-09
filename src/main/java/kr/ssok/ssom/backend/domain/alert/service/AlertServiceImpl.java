@@ -336,7 +336,7 @@ public class AlertServiceImpl implements AlertService {
 
             if (alertList == null || alertList.isEmpty()) {
                 log.warn("[오픈서치 대시보드 알림] Json 파싱 결과 알림 리스트가 비어있습니다.");
-                throw new BaseException(BaseResponseStatus.PARSING_ERROR);
+                return;
             }
 
             for (AlertRequestDto alertRequest : alertList) {

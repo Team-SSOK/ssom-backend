@@ -74,4 +74,19 @@ public interface UserRepository extends JpaRepository<User, String> {
      */
     @Query("SELECT u FROM User u WHERE u.username LIKE %:username% AND u.githubId IS NOT NULL AND u.githubId != ''")
     List<User> findByUsernameContainingIgnoreCaseAndGithubIdIsNotNull(@Param("username") String username);
+
+    /**
+     * GitHub ID로 사용자 조회
+     * @param githubId GitHub ID
+     * @return User 엔티티 Optional
+     */
+    Optional<User> findByGithubId(String githubId);
+
+    List<User> findAllByGithubIdIn(List<String> githubIds);
+
+    /**
+     * 모든 사용자를 사원번호 순으로 조회
+     * @return 사원번호 오름차순으로 정렬된 모든 사용자 목록
+     */
+    List<User> findAllByOrderByIdAsc();
 }

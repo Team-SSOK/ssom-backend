@@ -28,6 +28,7 @@ application.properties
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+src/main/resources/firebase/firebase-adminsdk-2.json
 
 ### NetBeans ###
 /nbproject/private/

@@ -1,6 +1,5 @@
 package kr.ssok.ssom.backend.domain.issue.service.Impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.ssok.ssom.backend.domain.issue.dto.*;
 import kr.ssok.ssom.backend.domain.issue.entity.Issue;
 import kr.ssok.ssom.backend.domain.issue.entity.constant.IssueStatus;
@@ -16,7 +15,6 @@ import kr.ssok.ssom.backend.global.config.GitHubConfig;
 import kr.ssok.ssom.backend.global.dto.*;
 import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
-import kr.ssok.ssom.backend.global.util.GitHubWebhookValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -41,8 +39,6 @@ public class IssueServiceImpl implements IssueService {
     private final GitHubApiClient gitHubApiClient;
     private final GitHubConfig gitHubConfig;
     private final UserRepository userRepository;
-    private final GitHubWebhookValidator webhookValidator;
-    private final ObjectMapper objectMapper;
     
     /**
      * LLM을 통한 Issue 초안 작성
@@ -112,12 +108,15 @@ public class IssueServiceImpl implements IssueService {
             String issueBody = buildIssueBody(request);
             
             // 4. GitHub API 요청 구성
+            List<String> labels = getDefaultLabels();
             GitHubIssueRequestDto githubRequest = GitHubIssueRequestDto.builder()
                     .title(request.getTitle())
                     .body(issueBody)
                     .assignees(assigneeGithubIds)
-                    .labels(getDefaultLabels())
+                    .labels(labels)
                     .build();
+            
+            log.info("GitHub Issue 생성 요청 - 담당자: {}, 라벨: {}", assigneeGithubIds, labels);
             
             // 5. GitHub API 호출 (실패 시 전체 트랜잭션 롤백)
             GitHubIssueResponseDto githubResponse;
@@ -216,175 +215,6 @@ public class IssueServiceImpl implements IssueService {
     }
     
     /**
-     * GitHub Webhook을 통한 Issue 상태 동기화
-     */
-    @Override
-    @Transactional
-    public void syncIssueStatus(Long githubIssueNumber, String newStatus) {
-        log.info("GitHub Issue 상태 동기화 - GitHub Issue 번호: {}, 새로운 상태: {}", githubIssueNumber, newStatus);
-        
-        Issue issue = issueRepository.findByGithubIssueNumber(githubIssueNumber)
-                .orElse(null);
-        
-        if (issue == null) {
-            log.warn("GitHub Issue 번호에 해당하는 Issue를 찾을 수 없음: {}", githubIssueNumber);
-            return;
-        }
-        
-        // 상태 변환 및 업데이트
-        IssueStatus issueStatus;
-        try {
-            issueStatus = "closed".equalsIgnoreCase(newStatus) ? IssueStatus.CLOSED : IssueStatus.OPEN;
-        } catch (Exception e) {
-            log.warn("알 수 없는 Issue 상태: {}", newStatus);
-            return;
-        }
-        
-        issue.updateStatus(issueStatus);
-        issueRepository.save(issue);
-        
-        log.info("Issue 상태 동기화 완료 - Issue ID: {}, 새로운 상태: {}", issue.getIssueId(), issueStatus);
-    }
-    
-    /**
-     * GitHub Webhook 이벤트 처리
-     */
-    @Override
-    @Transactional
-    public void handleGitHubWebhook(String webhookPayload, String eventType, String signature) {
-        log.info("GitHub Webhook 이벤트 처리 시작 - 이벤트 타입: {}", eventType);
-        
-        try {
-            // 1. 서명 검증 (Secret이 설정된 경우)
-            if (webhookValidator.shouldValidateSignature(gitHubConfig.getWebhook().getSecret(), signature)) {
-                boolean isValidSignature = webhookValidator.validateSignature(
-                        webhookPayload, 
-                        signature, 
-                        gitHubConfig.getWebhook().getSecret()
-                );
-                
-                if (!isValidSignature) {
-                    log.error("GitHub Webhook 서명 검증 실패");
-                    throw new BaseException(BaseResponseStatus.BAD_REQUEST);
-                }
-                log.debug("GitHub Webhook 서명 검증 성공");
-            } else {
-                log.warn("GitHub Webhook 서명 검증을 수행하지 않음 - Secret 또는 서명 없음");
-            }
-            
-            // 2. Issue 이벤트인지 확인
-            if (!"issues".equals(eventType)) {
-                log.info("Issue 이벤트가 아님 - 이벤트 타입: {} (처리 건너뜀)", eventType);
-                return;
-            }
-            
-            // 3. Webhook 페이로드 파싱
-            GitHubWebhookDto webhook = objectMapper.readValue(webhookPayload, GitHubWebhookDto.class);
-            
-            // 4. Repository 검증 (우리 Repository에서 온 이벤트인지 확인)
-            if (!isOurRepository(webhook.getRepository())) {
-                log.info("다른 Repository의 이벤트 - Repository: {} (처리 건너뜀)", 
-                        webhook.getRepository().getFullName());
-                return;
-            }
-            
-            // 5. Issue 정보 확인
-            GitHubWebhookIssueDto issue = webhook.getIssue();
-            if (issue == null || issue.getNumber() == null) {
-                log.warn("Webhook에 Issue 정보 없음");
-                return;
-            }
-            
-            // 6. 액션별 처리
-            String action = webhook.getAction();
-            log.info("GitHub Issue {} 이벤트 처리 - Issue 번호: {}, 제목: {}", 
-                    action, issue.getNumber(), issue.getTitle());
-            
-            switch (action) {
-                case "opened":
-                    handleIssueOpened(issue);
-                    break;
-                case "closed":
-                    handleIssueClosed(issue);
-                    break;
-                case "reopened":
-                    handleIssueReopened(issue);
-                    break;
-                case "edited":
-                    handleIssueEdited(issue);
-                    break;
-                default:
-                    log.info("처리하지 않는 Issue 액션: {} (건너뜀)", action);
-                    break;
-            }
-            
-            log.info("GitHub Webhook 이벤트 처리 완료 - Issue 번호: {}", issue.getNumber());
-            
-        } catch (BaseException e) {
-            log.error("GitHub Webhook 처리 중 BaseException 발생: {}", e.getMessage());
-            throw e;
-        } catch (Exception e) {
-            log.error("GitHub Webhook 처리 중 예상치 못한 오류 발생", e);
-            throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-    
-    /**
-     * 우리 Repository에서 온 이벤트인지 확인
-     */
-    private boolean isOurRepository(GitHubWebhookRepositoryDto repository) {
-        if (repository == null || repository.getFullName() == null) {
-            return false;
-        }
-        
-        String expectedFullName = gitHubConfig.getApi().getOwner() + "/" + gitHubConfig.getApi().getRepository();
-        return expectedFullName.equals(repository.getFullName());
-    }
-    
-    /**
-     * Issue 생성 이벤트 처리
-     */
-    private void handleIssueOpened(GitHubWebhookIssueDto issueDto) {
-        log.info("Issue 생성 이벤트 처리 - Issue 번호: {}", issueDto.getNumber());
-        
-        // 우리가 생성한 Issue가 아닌 경우 (외부에서 직접 생성한 Issue)
-        // 현재는 로그만 남기고 특별한 처리 안함
-        Issue existingIssue = issueRepository.findByGithubIssueNumber(issueDto.getNumber()).orElse(null);
-        
-        if (existingIssue == null) {
-            log.info("외부에서 직접 생성된 Issue - Issue 번호: {} (현재 DB 동기화 안함)", issueDto.getNumber());
-        } else {
-            log.info("우리가 생성한 Issue의 생성 완료 알림 - Issue 번호: {}", issueDto.getNumber());
-        }
-    }
-    
-    /**
-     * Issue 종료 이벤트 처리
-     */
-    private void handleIssueClosed(GitHubWebhookIssueDto issueDto) {
-        log.info("Issue 종료 이벤트 처리 - Issue 번호: {}", issueDto.getNumber());
-        syncIssueStatus(issueDto.getNumber(), "closed");
-    }
-    
-    /**
-     * Issue 재오픈 이벤트 처리
-     */
-    private void handleIssueReopened(GitHubWebhookIssueDto issueDto) {
-        log.info("Issue 재오픈 이벤트 처리 - Issue 번호: {}", issueDto.getNumber());
-        syncIssueStatus(issueDto.getNumber(), "open");
-    }
-    
-    /**
-     * Issue 수정 이벤트 처리
-     */
-    private void handleIssueEdited(GitHubWebhookIssueDto issueDto) {
-        log.info("Issue 수정 이벤트 처리 - Issue 번호: {} (현재 특별한 처리 안함)", issueDto.getNumber());
-        
-        // TODO: 필요시 Issue 제목/설명 업데이트 로직 추가 가능
-        // 현재는 상태 변경만 처리하므로 수정 이벤트는 로그만 남김
-    }
-    
-    /**
      * 담당자들의 GitHub ID 수집
      */
     private List<String> collectAssigneeGithubIds(List<String> assigneeUsernames, User creator) {
@@ -477,18 +307,22 @@ public class IssueServiceImpl implements IssueService {
         body.append("## 📋 추가 정보\n");
         body.append("- **생성자:** SSOM 시스템\n");
         body.append("- **생성 시간:** ").append(java.time.LocalDateTime.now()).append("\n");
-        body.append("- **로그 개수:** ").append(request.getLogIds().size()).append("개\n\n");
+        body.append("- **로그 개수:** ").append(request.getLogIds().size()).append("개\n");
+        body.append("- **라벨:** `ssom`, `bug`\n\n");
         
         body.append("---\n");
-        body.append("*이 Issue는 SSOM 백엔드 시스템에서 LLM을 통해 자동으로 생성되었습니다.*");
+        body.append("*이 Issue는 SSOM 백엔드 시스템에서 LLM을 통해 자동으로 생성되었습니다.*\n");
+        body.append("*`ssom` 라벨을 통해 SSOM 시스템에서 생성된 Issue임을 식별할 수 있습니다.*");
         
         return body.toString();
     }
     
     /**
      * 기본 라벨 목록 반환
+     * - ssom: SSOM 시스템에서 생성된 Issue임을 식별하기 위한 라벨
+     * - bug: 기본적으로 버그 관련 Issue로 분류
      */
     private List<String> getDefaultLabels() {
-        return List.of("bug");
+        return List.of("ssom", "bug");
     }
 }

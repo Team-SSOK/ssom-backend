@@ -6,5 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 public interface LogSummaryRepository extends JpaRepository<LogSummary, String> {
+
     Optional<LogSummary> findByLogId(String logId);
+
+    Optional<LogSummary> findByLogMessage(String logMessage);
 }

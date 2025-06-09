@@ -7,11 +7,15 @@ import kr.ssok.ssom.backend.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.task.DelegatingSecurityContextAsyncTaskExecutor;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -45,8 +49,22 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/error",
             "/actuator/health/readiness",
-            "/actuator/health/liveness"
+            "/actuator/health/liveness",
+            "/api/alert/grafana",
+            "/api/alert/opensearch",
+            "/api/alert/devops",
+            "/api/alert/",
+            "/api/issue/webhook/github",
+            "/"
     );
+
+    /**
+     * 비동기 처리를 위한 Security Context 전파 설정
+     */
+    static {
+        // 비동기 처리 시 Security Context 전파를 위한 전략 설정
+        SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
+    }
 
     /**
      * JWT 인증 필터를 Bean으로 등록 (순환참조 방지)
@@ -54,6 +72,31 @@ public class SecurityConfig {
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
         return new JwtAuthenticationFilter(jwtTokenProvider, redisTemplate, userService, WHITELIST_PATHS);
+    }
+
+    /**
+     * 비동기 처리를 위한 DelegatingSecurityContextAsyncTaskExecutor 설정
+     */
+    @Bean
+    public DelegatingSecurityContextAsyncTaskExecutor taskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(10);
+        executor.setMaxPoolSize(50);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("sse-");
+        executor.initialize();
+        
+        return new DelegatingSecurityContextAsyncTaskExecutor(executor);
+    }
+
+    /**
+     * SSE를 위한 추가 비동기 처리 설정
+     */
+    @Bean
+    public DelegatingSecurityContextAsyncTaskExecutor sseTaskExecutor() {
+        return new DelegatingSecurityContextAsyncTaskExecutor(
+                new SimpleAsyncTaskExecutor("sse-emitter-")
+        );
     }
 
     /**
@@ -78,7 +121,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> 
                     session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 
-                // 예외 처리 설정
+                // 예외 처리 설정 - SSE 응답 커밋 상태 고려
                 .exceptionHandling(exception -> 
                     exception.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 
@@ -90,6 +133,12 @@ public class SecurityConfig {
                 
                 // JWT 인증 필터 추가
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+                
+                // 비동기 요청 지원 활성화 (SSE 포함)
+                .headers(headers -> headers
+                    .frameOptions().sameOrigin()
+                    .httpStrictTransportSecurity(hstsConfig -> hstsConfig.disable())
+                )
                 
                 .build();
     }

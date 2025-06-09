@@ -6,7 +6,10 @@ import kr.ssok.ssom.backend.domain.user.dto.LoginResponseDto;
 import kr.ssok.ssom.backend.domain.user.dto.PasswordChangeRequestDto;
 import kr.ssok.ssom.backend.domain.user.dto.SignupRequestDto;
 import kr.ssok.ssom.backend.domain.user.dto.UserResponseDto;
+import kr.ssok.ssom.backend.domain.user.dto.UserListResponseDto;
 import kr.ssok.ssom.backend.domain.user.entity.User;
+
+import java.util.List;
 
 public interface UserService {
     
@@ -44,4 +47,9 @@ public interface UserService {
      * 비밀번호 변경
      */
     void changePassword(String employeeId, PasswordChangeRequestDto request);
+    
+    /**
+     * 모든 사용자 목록 조회
+     */
+    List<UserListResponseDto> getAllUsers();
 }

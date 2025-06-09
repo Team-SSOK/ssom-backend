@@ -12,6 +12,5 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LogSummaryResponseDto {
-    private List<LogRequestDto> logs;
     private LogSummaryMessageDto message;
 }

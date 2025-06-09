@@ -55,6 +55,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain) throws ServletException, IOException {
 
         String requestPath = request.getRequestURI();
+        boolean isSseRequest = requestPath.contains("/subscribe") || 
+                              "text/event-stream".equals(request.getHeader("Accept"));
 
         // 인증이 필요없는 요청은 토큰 검증 없이 통과
         if (isWhiteListPath(requestPath)) {
@@ -67,6 +69,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String authHeader = request.getHeader("Authorization");
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
                 log.warn("Authorization header is missing or invalid for path: {}", requestPath);
+                
+                // SSE 요청의 경우 특별 처리
+                if (isSseRequest) {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
+                
                 sendErrorResponse(response, "Authorization header is missing or invalid", HttpServletResponse.SC_UNAUTHORIZED);
                 return;
             }
@@ -75,6 +84,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = jwtTokenProvider.resolveToken(authHeader);
             if (token == null || !jwtTokenProvider.validateToken(token)) {
                 log.warn("Invalid JWT token for path: {}", requestPath);
+                
+                // SSE 요청의 경우 특별 처리
+                if (isSseRequest) {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
+                
                 sendErrorResponse(response, "Invalid JWT token", HttpServletResponse.SC_UNAUTHORIZED);
                 return;
             }
@@ -84,6 +100,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Boolean isBlacklisted = redisTemplate.hasKey(blacklistKey);
             if (Boolean.TRUE.equals(isBlacklisted)) {
                 log.warn("Blacklisted token used for path: {}", requestPath);
+                
+                // SSE 요청의 경우 특별 처리
+                if (isSseRequest) {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
+                
                 sendErrorResponse(response, "Token is blacklisted", HttpServletResponse.SC_UNAUTHORIZED);
                 return;
             }
@@ -92,6 +115,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String employeeId = jwtTokenProvider.getUserIdFromToken(token);
             if (employeeId == null) {
                 log.warn("Could not extract user ID from token for path: {}", requestPath);
+                
+                // SSE 요청의 경우 특별 처리
+                if (isSseRequest) {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
+                
                 sendErrorResponse(response, "Could not extract user ID from token", HttpServletResponse.SC_UNAUTHORIZED);
                 return;
             }
@@ -110,12 +140,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             } catch (BaseException e) {
                 log.warn("User not found for employeeId: {} in path: {}", employeeId, requestPath);
+                
+                // SSE 요청의 경우 특별 처리
+                if (isSseRequest) {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
+                
                 sendErrorResponse(response, "User not found", HttpServletResponse.SC_UNAUTHORIZED);
                 return;
             }
 
         } catch (Exception e) {
             log.error("Authentication error for path: {}, error: {}", requestPath, e.getMessage());
+            
+            // SSE 요청의 경우 특별 처리
+            if (isSseRequest) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
+            
             sendErrorResponse(response, "Authentication failed", HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }

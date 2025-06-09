@@ -10,12 +10,14 @@ import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,6 +32,10 @@ public class BiometricService {
     private final UserService userService;
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
+    private final RedisTemplate<String, String> redisTemplate;
+
+    // Refresh Token을 저장하는 키 prefix
+    private static final String REFRESH_TOKEN_PREFIX = "refresh:token:";
 
     /**
      * 생체인증 상태 확인 (사용자 ID 기반)
@@ -110,17 +116,25 @@ public class BiometricService {
         log.info("생체인증 로그인 시도: employeeId={}, deviceId={}", employeeId, deviceId);
 
         try {
-            // 1. 현재 실패 횟수 확인
+            // 1. 디바이스 차단 상태 확인
+            if (biometricFailureService.isDeviceBlocked(employeeId, deviceId)) {
+                recordFailedAttempt(employeeId, request, "Device blocked", httpRequest);
+                throw new BaseException(BaseResponseStatus.BIOMETRIC_DEVICE_BLOCKED);
+            }
+
+            // 2. 현재 실패 횟수 확인
             int currentFailCount = biometricFailureService.getFailCount(employeeId, deviceId);
             if (currentFailCount >= 3) {
-                recordFailedAttempt(employeeId, request, "Max attempts exceeded", httpRequest);
+                // 3회 이상 실패 시 디바이스 차단
+                biometricFailureService.blockDevice(employeeId, deviceId);
+                recordFailedAttempt(employeeId, request, "Max attempts exceeded - device blocked", httpRequest);
                 throw new BaseException(BaseResponseStatus.BIOMETRIC_MAX_ATTEMPTS_EXCEEDED);
             }
 
-            // 2. 사용자 존재 여부 확인
+            // 3. 사용자 존재 여부 확인
             User user = userService.findUserByEmployeeId(employeeId);
 
-            // 3. 해당 사용자의 해당 디바이스 생체인증 정보 조회
+            // 4. 해당 사용자의 해당 디바이스 생체인증 정보 조회
             BiometricInfo biometricInfo = biometricInfoRepository
                 .findByEmployeeIdAndDeviceIdAndBiometricTypeAndIsActiveTrue(
                     employeeId, 
@@ -132,13 +146,13 @@ public class BiometricService {
                     return new BaseException(BaseResponseStatus.BIOMETRIC_NOT_REGISTERED);
                 });
 
-            // 4. 생체인증 해시 검증
+            // 5. 생체인증 해시 검증
             if (!verifyBiometricHash(request.getBiometricHash(), biometricInfo.getBiometricHash())) {
                 recordFailedAttempt(employeeId, request, "Invalid biometric hash", httpRequest);
                 throw new BaseException(BaseResponseStatus.INVALID_BIOMETRIC);
             }
 
-            // 5. 타임스탬프 검증 (Replay Attack 방지)
+            // 6. 타임스탬프 검증 (Replay Attack 방지)
             long currentTime = System.currentTimeMillis();
             long requestTime = request.getTimestamp();
             if (Math.abs(currentTime - requestTime) > 300000) { // 5분 초과
@@ -146,18 +160,30 @@ public class BiometricService {
                 throw new BaseException(BaseResponseStatus.INVALID_REQUEST);
             }
 
-            // 6. JWT 토큰 생성
+            // 7. JWT 토큰 생성
             String accessToken = jwtTokenProvider.createAccessToken(user.getId());
             String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
 
-            // 7. 마지막 사용 시간 업데이트
-            biometricInfo.setLastUsedAt(LocalDateTime.now());
-            biometricInfoRepository.save(biometricInfo);
+            // 토큰 만료 시간 계산
+            long expirationTime = jwtTokenProvider.getTokenExpirationTime(refreshToken);
 
-            // 8. 성공 기록
+            // Refresh Token을 Redis에 저장
+            String refreshTokenKey = REFRESH_TOKEN_PREFIX + user.getId();
+            redisTemplate.opsForValue().set(
+                    refreshTokenKey,
+                    refreshToken,
+                    expirationTime,
+                    TimeUnit.SECONDS
+            );
+
+            // 8. 마지막 사용 시간 업데이트 (전용 메서드 사용)
+            LocalDateTime now = LocalDateTime.now();
+            biometricInfoRepository.updateLastUsedAt(biometricInfo.getId(), now);
+
+            // 9. 성공 기록
             recordSuccessfulAttempt(employeeId, request, httpRequest);
 
-            // 9. 실패 횟수 초기화
+            // 10. 실패 횟수 초기화
             biometricFailureService.clearFailCount(employeeId, deviceId);
 
             log.info("생체인증 로그인 성공: employeeId={}", employeeId);
@@ -166,12 +192,22 @@ public class BiometricService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .username(user.getUsername())
-                .department(user.getDepartment().name())
+                .department(user.getDepartment().getPrefix())
+                .expiresIn(expirationTime)
+                .biometricEnabled(true) // 생체인증으로 로그인했으므로 true
+                .lastLoginAt(now.toString())
                 .build();
 
         } catch (BaseException e) {
             // 실패 횟수 증가
-            biometricFailureService.incrementFailCount(employeeId, deviceId);
+            int newFailCount = biometricFailureService.incrementFailCount(employeeId, deviceId);
+            
+            // 3회 실패 시 디바이스 차단
+            if (newFailCount >= 3) {
+                biometricFailureService.blockDevice(employeeId, deviceId);
+                log.warn("디바이스 차단됨 - 사원번호: {}, 디바이스: {}, 실패횟수: {}", employeeId, deviceId, newFailCount);
+            }
+            
             throw e;
         }
     }

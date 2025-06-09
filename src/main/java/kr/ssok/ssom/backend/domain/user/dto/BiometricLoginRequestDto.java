@@ -12,7 +12,7 @@ public class BiometricLoginRequestDto {
     private String employeeId;
 
     @NotBlank(message = "생체인증 타입은 필수입니다.")
-    @Pattern(regexp = "FINGERPRINT|FACE|VOICE", message = "유효하지 않은 생체인증 타입입니다.")
+    @Pattern(regexp = "FINGERPRINT|FACE", message = "유효하지 않은 생체인증 타입입니다.")
     private String biometricType;
 
     @NotBlank(message = "디바이스 ID는 필수입니다.")

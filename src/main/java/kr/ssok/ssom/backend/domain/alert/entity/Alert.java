@@ -22,6 +22,7 @@ public class Alert {
     private Long alertId;
 
     @OneToMany(mappedBy = "alert", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<AlertStatus> alertStatuses = new ArrayList<>();
 
     //id

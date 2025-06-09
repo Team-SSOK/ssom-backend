@@ -1,17 +1,68 @@
 package kr.ssok.ssom.backend.domain.alert.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.Builder;
-import lombok.Getter;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Tag(name = "AlertIssueRequestDto", description = "이슈 생성 완료 시 보내주는 포맷")
-@Getter
-@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class AlertIssueRequestDto {
-    // TODO ISSUE 담당자 분과 협의하여 수정
-    private List<String> sharedEmployeeIds; // 이슈 공유자들
-    private LocalDateTime timestamp; //이슈 생성 완료 시간
+
+    private String action;
+    private Issue issue;
+
+    public String getAction() {
+        return action;
+    }
+
+    public Issue getIssue() {
+        return issue;
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Issue {
+
+        private List<Assignee> assignees;
+
+        @JsonProperty("created_at")
+        private String createdAt;
+
+        private List<Label> labels;
+
+        public List<Assignee> getAssignees() {
+            return assignees;
+        }
+
+        public String getCreatedAt() {
+            return createdAt;
+        }
+
+        public List<Label> getLabels() {
+            return labels;
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Assignee {
+        private String login;
+
+        public String getLogin() {
+            return login;
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Label {
+        private String name;
+
+        public String getName() {
+            return name;
+        }
+    }
 }

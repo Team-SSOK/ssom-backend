@@ -15,6 +15,7 @@ import kr.ssok.ssom.backend.domain.user.entity.User;
 import kr.ssok.ssom.backend.domain.user.repository.UserRepository;
 import kr.ssok.ssom.backend.global.client.FirebaseClient;
 import kr.ssok.ssom.backend.global.dto.FcmMessageRequestDto;
+import kr.ssok.ssom.backend.global.dto.GitHubIssueResponseDto;
 import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
@@ -64,18 +65,13 @@ public class AlertServiceImpl implements AlertService {
         if (employeeId == null || employeeId.trim().isEmpty()) {
             log.error("[알림 SSE 구독] 오류 : employeeId = {}", employeeId);
             throw new BaseException(BaseResponseStatus.SSE_BAD_REQUEST);
-
         }
 
         // 2. emitterId 생성 (고유 식별자)
         String emitterId = employeeId;
 
-        // 3. 기존 emitter 존재 시 제거
-        if (emitters.containsKey(emitterId)) {
-            log.warn("[알림 SSE 구독] 기존 emitter 존재. 제거 후 새 emitter 생성 : emitterId = {}", emitterId);
-            SseEmitter oldEmitter = emitters.remove(emitterId);
-            if (oldEmitter != null) oldEmitter.complete();
-        }
+        // 3. 기존 emitter 존재 시 안전하게 제거
+        cleanupExistingEmitter(emitterId);
 
         // 4. emitter 생성 및 등록
         SseEmitter emitter = new SseEmitter(DEFAULT_TIMEOUT);
@@ -83,43 +79,83 @@ public class AlertServiceImpl implements AlertService {
 
         log.info("[알림 SSE 구독] 연결 완료 : employeeId = {}, emitterId = {}", employeeId, emitterId);
 
-        response.setHeader("X-Accel-Buffering", "no");
+        // 5. emitter 이벤트 콜백 등록 - Security Context 없이 안전하게 처리
+        setupEmitterCallbacks(emitter, emitterId);
 
-        // 5. emitter 이벤트 콜백 등록
+        // 6. 클라이언트에 연결 초기 이벤트 전송
+        sendInitialEvent(emitter, emitterId);
+
+        log.info("[알림 SSE 구독] SSE 연결 완료 : emitterId = {}", emitterId);
+        return emitter;
+    }
+
+    /**
+     * 기존 emitter 안전하게 정리
+     */
+    private void cleanupExistingEmitter(String emitterId) {
+        SseEmitter existingEmitter = emitters.remove(emitterId);
+        if (existingEmitter != null) {
+            log.warn("[알림 SSE 구독] 기존 emitter 존재. 안전하게 제거 : emitterId = {}", emitterId);
+            try {
+                existingEmitter.complete();
+            } catch (Exception e) {
+                log.debug("[알림 SSE 구독] 기존 emitter 정리 중 예외 무시 : emitterId = {}, error = {}", 
+                         emitterId, e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Emitter 콜백 설정 - Security Context 없이 안전하게 처리
+     */
+    private void setupEmitterCallbacks(SseEmitter emitter, String emitterId) {
+        // onCompletion: 정상 완료 시
         emitter.onCompletion(() -> {
             log.info("[Emitter 완료] emitterId = {}", emitterId);
             emitters.remove(emitterId);
         });
+
+        // onTimeout: 타임아웃 시 - Security Context 사용 안함
         emitter.onTimeout(() -> {
             log.info("[Emitter 타임아웃] emitterId = {}", emitterId);
             emitters.remove(emitterId);
-        });
-        emitter.onError((e) -> {
-            log.error("[Emitter 오류 발생] emitterId = {}, error = {}", emitterId, e.getMessage(), e);
-            emitters.remove(emitterId);
+            // 명시적으로 complete 호출하지 않음 (이미 타임아웃됨)
         });
 
-        // 6. 클라이언트에 연결 초기 이벤트 전송
+        // onError: 오류 발생 시 - Security Context 사용 안함
+        emitter.onError((throwable) -> {
+            log.error("[Emitter 오류 발생] emitterId = {}, error = {}", 
+                     emitterId, throwable.getMessage());
+            emitters.remove(emitterId);
+            // 에러 발생 시에도 명시적 complete 불필요
+        });
+    }
+
+    /**
+     * 초기 연결 이벤트 전송
+     */
+    private void sendInitialEvent(SseEmitter emitter, String emitterId) {
         try {
             String eventId = createTimeIncludeId(emitterId);
             emitter.send(SseEmitter.event()
                     .id(eventId)
                     .name("SSE_ALERT_INIT")
-                    .data("connected"));
+                    .data("connected")
+                    .reconnectTime(3000L)); // 재연결 시간 설정
 
             log.info("[알림 SSE 구독] SSE 초기 이벤트 전송 성공 : emitterId = {}, eventId = {}", emitterId, eventId);
 
-        } catch (IOException | IllegalStateException e) {
+        } catch (IOException e) {
             emitters.remove(emitterId);
-            emitter.completeWithError(e);
-
-            log.error("[알림 SSE 구독] 오류 : SSE_ALERT_INIT failed  - emitterId = {}, error = {}", emitterId, e.getMessage(), e);
+            log.error("[알림 SSE 구독] 초기 이벤트 전송 실패 : emitterId = {}, error = {}", 
+                     emitterId, e.getMessage());
+            throw new BaseException(BaseResponseStatus.SSE_INIT_ERROR);
+        } catch (IllegalStateException e) {
+            emitters.remove(emitterId);
+            log.error("[알림 SSE 구독] Emitter 상태 오류 : emitterId = {}, error = {}", 
+                     emitterId, e.getMessage());
             throw new BaseException(BaseResponseStatus.SSE_INIT_ERROR);
         }
-
-        log.info("[알림 SSE 구독] SSE 연결 완료 : emitterId = {}", emitterId);
-
-        return emitter;
     }
 
     private String createTimeIncludeId(String employeeId) {
@@ -166,8 +202,9 @@ public class AlertServiceImpl implements AlertService {
      * @param request AlertModifyRequestDto
      */
     @Override
-    public void modifyAlertStatus(AlertModifyRequestDto request) {
-        log.info("[알림 개별 상태 변경] 서비스 진입 : request = {}", request);
+    public AlertResponseDto modifyAlertStatus(AlertModifyRequestDto request) {
+        log.info("[알림 개별 상태 변경] 서비스 진입 : alertStatusId = {}, isRead = {}"
+                , request.getAlertStatusId(), request.isRead());
 
         // 1. 요청값 검증
         if (request == null || request.getAlertStatusId() == null) {
@@ -191,6 +228,8 @@ public class AlertServiceImpl implements AlertService {
             }
 
             log.info("[알림 개별 상태 변경] 변경 완료 : alertStatusId = {}, isRead = {}", request.getAlertStatusId(), request.isRead());
+
+            return AlertResponseDto.from(status);
 
         } catch (BaseException e) {
             throw e;
@@ -280,20 +319,19 @@ public class AlertServiceImpl implements AlertService {
      *      1. String으로 받은 데이터 Json으로 parsing하여 공통 포맷에 담기
      *      2. createAlert 전송
      *
-     * @param requestDto : String, 리스트
+     * @param requestStr : String, 리스트
      */
     @Override
-    public void createOpensearchAlert(AlertOpensearchRequestDto requestDto) {
-        log.info("[오픈서치 대시보드 알림] 서비스 진입 : requestDto = {}", requestDto);
+    public void createOpensearchAlert(String requestStr) {
+        log.info("[오픈서치 대시보드 알림] 서비스 진입 : requestStr = {}", requestStr);
 
         try {
-            if (requestDto == null || requestDto.getRequest() == null || requestDto.getRequest().isBlank()) {
+            if (requestStr == null || requestStr.isEmpty()) {
                 log.warn("[오픈서치 대시보드 알림] 전달받은 원본 데이터가 비어있습니다.");
                 return;
             }
 
-            String rawJson = requestDto.getRequest();
-            List<AlertRequestDto> alertList = parseRawStringToDtoList(rawJson);
+            List<AlertRequestDto> alertList = parseRawStringToDtoList(requestStr);
 
             if (alertList == null || alertList.isEmpty()) {
                 log.warn("[오픈서치 대시보드 알림] Json 파싱 결과 알림 리스트가 비어있습니다.");
@@ -329,39 +367,17 @@ public class AlertServiceImpl implements AlertService {
                 throw new BaseException(BaseResponseStatus.PARSING_ERROR);
             }
 
-            // 1. 중첩된 중괄호 제거: "{{" → "{", "}}" → "}"
-            String fixed = raw.replaceAll("\\{\\s*\\{", "\\{")
-                    .replaceAll("}}", "}");
+            // 공백 및 개행 제거
+            String fixed = raw.trim();
+            fixed = fixed.replaceAll(",\\s*]", "]");
 
-            // 2. 마지막 쉼표 제거
-            fixed = fixed.trim();
-            if (fixed.endsWith(",")) {
-                fixed = fixed.substring(0, fixed.length() - 1);
+            if (!fixed.trim().startsWith("[")) {
+                log.warn("[JSON Parsing] 전달받은 원본 문자열의 형식이 상이합니다.");
+                throw new BaseException(BaseResponseStatus.PARSING_ERROR);
             }
 
-            // 3. JSON 배열 형태로 감싸기
-            // 여러 개의 객체가 있을 경우 각 객체를 `}, {` 로 구분하므로
-            // 이걸 이용해서 안전하게 나누고 다시 배열화
-            if (!fixed.startsWith("[") && !fixed.endsWith("]")) {
-                // 객체들 추출
-                String[] objects = fixed.split("},\\s*\\{");
-                StringBuilder sb = new StringBuilder();
-                sb.append("[");
-                for (int i = 0; i < objects.length; i++) {
-                    String obj = objects[i].trim();
+            return objectMapper.readValue(fixed, new TypeReference<List<AlertRequestDto>>() {});
 
-                    // 맨 앞/뒤 중괄호 정리
-                    if (!obj.startsWith("{")) sb.append("{");
-                    sb.append(obj);
-                    if (!obj.endsWith("}")) sb.append("}");
-
-                    if (i != objects.length - 1) sb.append(",");
-                }
-                sb.append("]");
-                fixed = sb.toString();
-            }
-
-            return objectMapper.readValue(fixed, new TypeReference<>() {});
         } catch (BaseException e) {
             throw e;
         } catch (Exception e) {
@@ -374,40 +390,66 @@ public class AlertServiceImpl implements AlertService {
      * 이슈 알림 처리
      *      1. createAlert 전송하지 않음 (user가 지정돼있으므로.)
      *
-     * @param requestDto : String, 리스트
+     * @param requestDto
      */
     @Override
     public void createIssueAlert(AlertIssueRequestDto requestDto) {
-        log.info("[이슈 생성 알림] 서비스 진입 : requestDto = {}", requestDto);
+        log.info("[Github 이슈 알림] 서비스 진입 : requestDto = {}", requestDto);
 
         try {
-            // 1. Alert 저장
+            // 0. 'ssom' 또는 'SSOM' 라벨이 있는지 확인
+            boolean hasSsomLabel = requestDto.getIssue().getLabels().stream()
+                    .anyMatch(label -> label.getName().equalsIgnoreCase("ssom"));
+
+            if (!hasSsomLabel) {
+                log.info("[Github 이슈 알림] 'ssom' 라벨이 없어 알림을 생성하지 않음");
+                return;
+            }
+
+            // 1. action 에 따라 title 설정
+            String alertTitle;
+            switch (requestDto.getAction()) {
+                case "opened":
+                    alertTitle = "[ISSUE] Opened";
+                    break;
+                case "reopened":
+                    alertTitle = "[ISSUE] Reopened";
+                    break;
+                case "closed":
+                    alertTitle = "[ISSUE] Closed";
+                    break;
+                default:
+                    log.warn("[Github 이슈 알림] 알림 전송으로 지원하지 않는 action 값: {}", requestDto.getAction());
+                    return;
+            }
+
+            // 2. Alert 저장
             Alert alert = Alert.builder()
                     .id(AlertKind.ISSUE + "_noNeedId")
-                    .title("[ISSUE] 이슈 공유")
-                    .message("새로운 이슈가 공유되었습니다.")
+                    .title(alertTitle)
+                    .message("Github 이슈가 공유되었습니다.")
                     .kind(AlertKind.ISSUE)
-                    .timestamp(requestDto.getTimestamp().toString())
+                    .timestamp(requestDto.getIssue().getCreatedAt())
                     .build();
             alertRepository.save(alert);
 
-            // 2. 알림 대상자 조회
-            List<User> targetUsers = new ArrayList<>();
-            List<String> sharedIds = requestDto.getSharedEmployeeIds();
+            // 3. 알림 대상자 조회
+            List<String> sharedLogins = requestDto.getIssue().getAssignees().stream()
+                    .map(AlertIssueRequestDto.Assignee::getLogin)
+                    .collect(Collectors.toList());
 
-            if (sharedIds != null && !sharedIds.isEmpty()) {
-                targetUsers = userRepository.findAllById(sharedIds);
+            if (sharedLogins.isEmpty()) {
+                log.warn("[Github 이슈 알림] 공유 대상자가 지정되지 않음");
+                return;
+            }
 
-                if (targetUsers.isEmpty()) {
-                    log.warn("[이슈 생성 알림] 공유 대상자가 존재하지 않음: {}", sharedIds);
-                    throw new BaseException(BaseResponseStatus.ALERT_TARGET_USER_NOT_FOUND);
-                }
-            } else {
-                log.warn("[이슈 생성 알림] 공유 대상자가 지정되지 않음");
+            List<User> targetUsers = userRepository.findAllByGithubIdIn(sharedLogins);
+            if (targetUsers.isEmpty()) {
+                log.warn("[Github 이슈 알림] 공유 대상자가 존재하지 않음: {}", sharedLogins);
                 throw new BaseException(BaseResponseStatus.ALERT_TARGET_USER_NOT_FOUND);
             }
 
-            // 3. AlertStatus 생성 및 전송
+            // 4. AlertStatus 생성 및 전송
             for (User user : targetUsers) {
                 AlertStatus alertStatus = AlertStatus.builder()
                         .alert(alert)
@@ -420,17 +462,17 @@ public class AlertServiceImpl implements AlertService {
                 sendAlertToUser(user.getId(), responseDto);
             }
 
-            log.info("[이슈 생성 알림] 서비스 처리 완료");
+            log.info("[Github 이슈 알림] 서비스 처리 완료");
         } catch (BaseException e) {
             throw e;
         } catch (Exception e) {
-            log.error("[이슈 생성 알림] 처리 중 예외 발생", e);
+            log.error("[Github 이슈 알림] 처리 중 예외 발생", e);
             throw new BaseException(BaseResponseStatus.ALERT_CREATE_FAILED);
         }
     }
 
     /**
-     * Jenkins 및 ArgoCD 알림 처리
+     * Devops (Jenkins 및 ArgoCD) 알림 처리
      *      1. app 에서 alertKind와 appName에 대해 parsing
      *      2. 공통 포맷에 담기
      *      3. createAlert 전송
@@ -438,18 +480,18 @@ public class AlertServiceImpl implements AlertService {
      * @param requestDto : Json, 단건
      */
     @Override
-    public void createDevopsAlert(AlertSendRequestDto requestDto) {
-        log.info("[Jenkins 및 ArgoCD 알림 생성] 서비스 진입 : requestDto = {}", requestDto);
+    public void createDevopsAlert(AlertDevopsRequestDto requestDto) {
+        log.info("[Devops 알림 생성] 서비스 진입 : requestDto.getApp() = {}", requestDto.getApp());
 
         if (requestDto == null || requestDto.getApp() == null || requestDto.getApp().trim().isEmpty()) {
-            log.error("[Jenkins 및 ArgoCD 알림 생성] requestDto 또는 app 필드가 null 또는 빈 값입니다.");
+            log.error("[Devops 알림 생성] requestDto 또는 app 필드가 null 또는 빈 값입니다.");
             throw new BaseException(BaseResponseStatus.INVALID_REQUEST);
         }
 
         // 1. app에서 alertKind와 appName 파싱
         String[] appParts = requestDto.getApp().split("_");
         if (appParts.length != 2) {
-            log.error("[Jenkins 및 ArgoCD 알림 생성] 잘못된 app 형식입니다. 예: jenkins_ssok-bank, app={}", requestDto.getApp());
+            log.error("[Devops 알림 생성] 잘못된 app 형식입니다. 예: jenkins_ssok-bank, app={}", requestDto.getApp());
             throw new BaseException(BaseResponseStatus.INVALID_REQUEST);
         }
 
@@ -470,14 +512,14 @@ public class AlertServiceImpl implements AlertService {
             createAlert(alertRequest, devopsKind);
 
         } catch (IllegalArgumentException e) {
-            log.error("[Jenkins 및 ArgoCD 알림 생성] 지원하지 않는 AlertKind입니다: {}", kindStr, e);
+            log.error("[Devops 알림 생성] 지원하지 않는 AlertKind입니다: {}", kindStr, e);
             throw new BaseException(BaseResponseStatus.UNSUPPORTED_ALERT_KIND);
         } catch (Exception e) {
-            log.error("[Jenkins 및 Ar고CD 알림 생성] 알림 생성 중 예외 발생", e);
+            log.error("[Devops 알림 생성] 알림 생성 중 예외 발생", e);
             throw new BaseException(BaseResponseStatus.ALERT_CREATE_FAILED);
         }
 
-        log.info("[Jenkins 및 ArgoCD 알림 생성] 서비스 처리 완료");
+        log.info("[Devops 알림 생성] 서비스 처리 완료");
     }
 
     /**
@@ -509,10 +551,11 @@ public class AlertServiceImpl implements AlertService {
                     .filter(user -> {
                         Department dept = user.getDepartment();
                         String app = request.getApp();
+                        String lowerApp = app != null ? app.toLowerCase() : "";
 
                         if (dept == Department.OPERATION || dept == Department.EXTERNAL) return true;
-                        if (dept == Department.CORE_BANK) return "ssok-bank".equalsIgnoreCase(app);
-                        if (dept == Department.CHANNEL) return !"ssok-bank".equalsIgnoreCase(app);
+                        if (dept == Department.CORE_BANK) return lowerApp.contains("ssok-bank");
+                        if (dept == Department.CHANNEL) return !lowerApp.contains("ssok-bank");
 
                         // 기본적으로는 받지 않음
                         return false;
@@ -574,33 +617,87 @@ public class AlertServiceImpl implements AlertService {
     }
 
     /**
-     * 알림 SSE 전송
+     * 알림 SSE 전송 - 안전한 전송 및 예외 처리
      *
      * @param emitterId
      * @param responseDto
     */
     public void sendSseAlertToUser(String emitterId, AlertResponseDto responseDto) {
-        log.info("[알림 SSE 전송] 서비스 진입");
+        log.info("[알림 SSE 전송] 서비스 진입 - emitterId: {}", emitterId);
 
         SseEmitter emitter = emitters.get(emitterId);
-        if (emitter != null) {
-            try {
-                emitter.send(SseEmitter.event()
-                        .name("SSE_ALERT")
-                        .data(responseDto));
-            } catch (IOException e) {
-                emitters.remove(emitterId);
-                log.error("[SSE 전송 실패, FCM으로 전환] employeeId = {}", emitterId, e);
-                sendFcmNotification(emitterId, responseDto);
-            } catch (Exception e) {
-                log.error("[알림 SSE 전송 중 예기치 못한 오류] employeeId = {}", emitterId, e);
-                // 필요시 추가 조치 가능
-            }
-        } else {
+        if (emitter == null) {
             log.warn("[알림 SSE 전송] Emitter가 존재하지 않습니다. employeeId = {}", emitterId);
+            return;
         }
 
-        log.info("[알림 SSE 전송] 처리 완료.");
+        try {
+            // Thread-safe SSE 전송
+            synchronized (emitter) {
+                emitter.send(SseEmitter.event()
+                        .name("SSE_ALERT")
+                        .id(createTimeIncludeId(emitterId))
+                        .data(responseDto)
+                        .reconnectTime(3000L));
+                        
+                log.info("[알림 SSE 전송] 성공 - emitterId: {}, alertId: {}", emitterId, responseDto.getAlertId());
+            }
+        } catch (IOException e) {
+            log.error("[SSE 전송 실패, FCM으로 전환] employeeId = {}, error = {}", emitterId, e.getMessage());
+            handleSseFailure(emitterId, responseDto);
+        } catch (IllegalStateException e) {
+            log.error("[SSE 전송 실패 - Emitter 상태 오류] employeeId = {}, error = {}", emitterId, e.getMessage());
+            handleSseFailure(emitterId, responseDto);
+        } catch (Exception e) {
+            log.error("[알림 SSE 전송 중 예기치 못한 오류] employeeId = {}, error = {}", emitterId, e.getMessage(), e);
+            handleSseFailure(emitterId, responseDto);
+        }
+
+        log.debug("[알림 SSE 전송] 처리 완료 - emitterId: {}", emitterId);
+    }
+
+    /**
+     * SSE 전송 실패 시 처리
+     */
+    private void handleSseFailure(String emitterId, AlertResponseDto responseDto) {
+        // 실패한 emitter 제거
+        emitters.remove(emitterId);
+        
+        // FCM으로 대체 전송 시도
+        try {
+            sendFcmNotification(emitterId, responseDto);
+            log.info("[FCM 대체 전송] 성공 - employeeId = {}", emitterId);
+        } catch (Exception fcmException) {
+            log.error("[FCM 대체 전송 실패] employeeId = {}, error = {}", emitterId, fcmException.getMessage());
+        }
+    }
+
+    /**
+     * SSE 연결 상태 확인 및 정리
+     */
+    public void cleanupDisconnectedEmitters() {
+        emitters.entrySet().removeIf(entry -> {
+            String emitterId = entry.getKey();
+            SseEmitter emitter = entry.getValue();
+            
+            try {
+                // 간단한 heartbeat 전송으로 연결 상태 확인
+                emitter.send(SseEmitter.event()
+                        .name("heartbeat")
+                        .data("ping"));
+                return false; // 연결 유지
+            } catch (Exception e) {
+                log.info("[SSE 정리] 비활성 emitter 제거 - emitterId: {}", emitterId);
+                return true; // 연결 끊어짐, 제거
+            }
+        });
+    }
+
+    /**
+     * 현재 활성 SSE 연결 수 반환
+     */
+    public int getActiveEmitterCount() {
+        return emitters.size();
     }
 
     /**

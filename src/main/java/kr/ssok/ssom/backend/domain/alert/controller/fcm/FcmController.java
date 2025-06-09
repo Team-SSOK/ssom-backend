@@ -47,7 +47,7 @@ public class FcmController {
             throw new BaseException(BaseResponseStatus.UNAUTHORIZED);
         }
 
-        fcmService.registerFcmToken(userPrincipal.getEmployeeId(), requestDto.getToken());
+        fcmService.registerFcmToken(userPrincipal.getEmployeeId(), requestDto.getFcmToken());
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
 

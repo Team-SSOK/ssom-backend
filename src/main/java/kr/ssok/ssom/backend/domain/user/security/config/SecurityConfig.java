@@ -56,7 +56,8 @@ public class SecurityConfig {
             "/api/alert/devops",
             "/api/alert/",
             "/api/issue/webhook/github",
-            "/"
+            "/",
+            "/api/logging/opensearch"
     );
 
     /**

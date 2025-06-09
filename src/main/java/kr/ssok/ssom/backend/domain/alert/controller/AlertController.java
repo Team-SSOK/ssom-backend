@@ -132,13 +132,27 @@ public class AlertController {
                 alertService.getAllAlertsForUser(userPrincipal.getEmployeeId()));
     }
 
-    @Operation(summary = "알림 개별 상태 변경", description = "알림의 읽음 여부를 변경합니다.")
+    @Operation(summary = "알림 개별 상태 변경", description = "알림의 개별 읽음 여부를 변경합니다.")
     @PatchMapping("/modify")
     public BaseResponse<AlertResponseDto> modifyAlertStatus(@RequestBody AlertModifyRequestDto request) {
         log.info("[알림 개별 상태 변경] 컨트롤러 진입");
 
         return new BaseResponse<>(BaseResponseStatus.SUCCESS,
                 alertService.modifyAlertStatus(request));
+    }
+
+    @Operation(summary = "알림 일괄 상태 변경", description = "알림의 일괄 읽음 여부를 변경합니다.")
+    @PatchMapping("/modifyAll")
+    public BaseResponse<List<AlertResponseDto>> modifyAllAlertStatus(@AuthenticationPrincipal UserPrincipal userPrincipal) {
+        log.info("[알림 일괄 상태 변경] 컨트롤러 진입");
+
+        if (userPrincipal == null) {
+            log.error("[알림 일괄 상태 변경] 인증되지 않은 사용자");
+            throw new BaseException(BaseResponseStatus.UNAUTHORIZED);
+        }
+
+        return new BaseResponse<>(BaseResponseStatus.SUCCESS,
+                alertService.modifyAllAlertStatus(userPrincipal.getEmployeeId()));
     }
 
     @Operation(summary = "알림 개별 삭제", description = "알림을 삭제 처리합니다.")

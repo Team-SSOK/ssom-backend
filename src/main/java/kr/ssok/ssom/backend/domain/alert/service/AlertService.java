@@ -12,6 +12,7 @@ public interface AlertService {
     SseEmitter subscribe(String username, String lastEventId, HttpServletResponse response);
     List<AlertResponseDto> getAllAlertsForUser(String employeeId);
     AlertResponseDto modifyAlertStatus(AlertModifyRequestDto request);
+    List<AlertResponseDto> modifyAllAlertStatus(String employeeId);
     void deleteAlert(AlertModifyRequestDto request);
 
     void createGrafanaAlert(AlertGrafanaRequestDto requestDto);

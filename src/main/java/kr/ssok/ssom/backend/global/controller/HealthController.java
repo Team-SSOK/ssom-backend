@@ -22,8 +22,6 @@ public class HealthController {
      */
     @GetMapping("/")
     public ResponseEntity<Map<String, Object>> root() {
-        log.info("[Health Check] 루트 경로 요청 수신");
-        
         return ResponseEntity.ok(Map.of(
             "status", "OK",
             "message", "SSOM Backend API Server is running",
@@ -38,8 +36,6 @@ public class HealthController {
      */
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> health() {
-        log.debug("[Health Check] 헬스 체크 요청 수신");
-        
         return ResponseEntity.ok(Map.of(
             "status", "UP",
             "timestamp", LocalDateTime.now(),
@@ -53,7 +49,6 @@ public class HealthController {
      */
     @GetMapping("/ping")
     public ResponseEntity<String> ping() {
-        log.debug("[Health Check] Ping 요청 수신");
         return ResponseEntity.ok("pong");
     }
 
@@ -62,8 +57,6 @@ public class HealthController {
      */
     @GetMapping("/info")
     public ResponseEntity<Map<String, Object>> info() {
-        log.debug("[Health Check] 정보 요청 수신");
-        
         return ResponseEntity.ok(Map.of(
             "application", "SSOM Backend",
             "version", "1.0-SNAPSHOT",

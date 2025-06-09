@@ -218,8 +218,7 @@ public class LoggingServiceImpl implements LoggingService {
 
             // 로그 목록 조회 필터링 조건 체크
             boolean appMatches = e.getAppFilter() == null || e.getAppFilter().equalsIgnoreCase(logDto.getApp());
-            Set<String> userLevels = Set.of(e.getLevelFilter().split(","));
-            boolean levelMatches = e.getLevelFilter() == null || userLevels.contains(logDto.getLevel());
+            boolean levelMatches = e.getLevelFilter() == null || e.getLevelFilter().equalsIgnoreCase(logDto.getLevel());
 
             // 필터링 조건 모두 만족하는 emitter에게만 전송
             if (appMatches && levelMatches) {

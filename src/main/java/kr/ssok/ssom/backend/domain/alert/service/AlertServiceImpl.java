@@ -242,6 +242,32 @@ public class AlertServiceImpl implements AlertService {
     }
 
     /**
+     * 알림 일괄 상태 변경
+     *
+     * @param employeeId
+     */
+    @Transactional
+    @Override
+    public List<AlertResponseDto> modifyAllAlertStatus(String employeeId) {
+        log.info("[알림 일괄 상태 변경] 서비스 진입 : employeeId = {}", employeeId);
+
+        // 1. 해당 유저의 읽지 않은 알림 조회
+        List<AlertStatus> unreadAlerts = alertStatusRepository.findByUser_IdAndIsReadFalse(employeeId);
+
+        // 2. 읽음 처리
+        unreadAlerts.forEach(AlertStatus::markAsRead);
+
+        // 3. 저장은 @Transactional이므로 flush 없이도 commit 시점에 처리됨
+
+        // 4. 전체 알림 상태 다시 조회해서 응답 리스트 구성
+        List<AlertStatus> allAlerts = alertStatusRepository.findByUser_IdOrderByAlert_CreatedAtDesc(employeeId);
+
+        return allAlerts.stream()
+                .map(AlertResponseDto::from)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * 알림 개별 삭제
      *
      *  @param request AlertModifyRequestDto

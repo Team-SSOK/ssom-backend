@@ -10,4 +10,7 @@ public interface AlertStatusRepository extends JpaRepository<AlertStatus, Long> 
 
     List<AlertStatus> findByUser_IdAndAlert_CreatedAtAfter(String employeeId, LocalDateTime from);
 
+    List<AlertStatus> findByUser_IdAndIsReadFalse(String employeeId);
+    List<AlertStatus> findByUser_IdOrderByAlert_CreatedAtDesc(String employeeId);
+
 }

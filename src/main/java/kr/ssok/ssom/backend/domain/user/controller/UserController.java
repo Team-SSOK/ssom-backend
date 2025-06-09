@@ -95,6 +95,4 @@ public class UserController {
 
         return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, userList));
     }
-
-    // 부서별 유저 정보
 }

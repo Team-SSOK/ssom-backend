@@ -19,4 +19,7 @@ public class LogDataDto {
     private String thread;
     private String message;
     private String app;
+
+    @JsonProperty("stack_trace")
+    private String stackTrace;
 }

@@ -119,7 +119,7 @@ public class LoggingServiceImpl implements LoggingService {
                                     .includes("@timestamp", "level", "logger", "thread", "message", "app")
                             )
                     )
-                    .size(10000) // 1000개 제한
+                    .size(3000) // 3000개 제한
                     .build();
 
             SearchResponse<LogDataDto> response = openSearchClient.search(request, LogDataDto.class);

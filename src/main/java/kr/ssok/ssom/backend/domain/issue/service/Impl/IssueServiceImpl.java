@@ -188,13 +188,13 @@ public class IssueServiceImpl implements IssueService {
     }
     
     /**
-     * 전체 Issue 목록 조회 (팀 공유)
+     * 전체 Issue 목록 조회 (팀 공유) - OPEN 상태만
      */
     @Override
     public List<IssueResponseDto> getAllIssues(String employeeId) {
-        log.info("전체 Issue 목록 조회 - 요청자: {}", employeeId);
+        log.info("전체 Issue 목록 조회 (OPEN 상태만) - 요청자: {}", employeeId);
         
-        List<Issue> issues = issueRepository.findAllByOrderByCreatedAtDesc();
+        List<Issue> issues = issueRepository.findByStatusOrderByCreatedAtDesc(IssueStatus.OPEN);
         
         return issues.stream()
                 .map(IssueResponseDto::from)

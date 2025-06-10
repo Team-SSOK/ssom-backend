@@ -27,6 +27,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -181,7 +183,7 @@ public class AlertServiceImpl implements AlertService {
         try {
             // 2. 알림 목록 조회
             LocalDateTime oneWeekAgo = LocalDateTime.now().minusWeeks(1);
-            List<AlertStatus> alertStatusList = alertStatusRepository.findByUser_IdAndAlert_CreatedAtAfter(employeeId, oneWeekAgo);
+            List<AlertStatus> alertStatusList = alertStatusRepository.findByUser_IdAndAlert_TimestampAfterOrderByAlert_TimestampDesc(employeeId, oneWeekAgo);
 
             if (alertStatusList.isEmpty()) {
                 log.info("[전체 알림 목록 조회] 알림 없음 : employeeId = {}", employeeId);
@@ -453,12 +455,21 @@ public class AlertServiceImpl implements AlertService {
             }
 
             // 2. Alert 저장
+            String createdAtStr = requestDto.getIssue().getCreatedAt();
+            OffsetDateTime createdAt;
+            try {
+                createdAt = OffsetDateTime.parse(createdAtStr);
+            } catch (DateTimeParseException e) {
+                log.warn("[Github 이슈 알림] createdAt 파싱 실패, 기본값 현재 시간 사용: {}", createdAtStr);
+                createdAt = OffsetDateTime.now();
+            }
+
             Alert alert = Alert.builder()
                     .id(AlertKind.ISSUE + "_noNeedId")
                     .title(alertTitle)
                     .message("Github 이슈가 공유되었습니다.")
                     .kind(AlertKind.ISSUE)
-                    .timestamp(requestDto.getIssue().getCreatedAt())
+                    .timestamp(createdAt)
                     .build();
             alertRepository.save(alert);
 

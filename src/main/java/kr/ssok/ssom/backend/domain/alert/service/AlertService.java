@@ -3,7 +3,8 @@ package kr.ssok.ssom.backend.domain.alert.service;
 import jakarta.servlet.http.HttpServletResponse;
 import kr.ssok.ssom.backend.domain.alert.dto.*;
 import kr.ssok.ssom.backend.domain.alert.entity.constant.AlertKind;
-import kr.ssok.ssom.backend.global.dto.GitHubIssueResponseDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.List;
 public interface AlertService {
     SseEmitter subscribe(String username, String lastEventId, HttpServletResponse response);
     List<AlertResponseDto> getAllAlertsForUser(String employeeId);
+    Page<AlertResponseDto> getPagedAlertsForUser(String employeeId, Pageable pageable);
     AlertResponseDto modifyAlertStatus(AlertModifyRequestDto request);
     List<AlertResponseDto> modifyAllAlertStatus(String employeeId);
     void deleteAlert(AlertModifyRequestDto request);

@@ -9,12 +9,15 @@ import kr.ssok.ssom.backend.domain.alert.dto.*;
 import kr.ssok.ssom.backend.domain.alert.service.AlertService;
 import kr.ssok.ssom.backend.domain.issue.service.IssueService;
 import kr.ssok.ssom.backend.domain.user.security.principal.UserPrincipal;
-import kr.ssok.ssom.backend.global.dto.GitHubIssueResponseDto;
 import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponse;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -132,6 +135,23 @@ public class AlertController {
 
         return new BaseResponse<>(BaseResponseStatus.SUCCESS,
                 alertService.getAllAlertsForUser(userPrincipal.getEmployeeId()));
+    }
+
+    @Operation(summary = "페이징 알림 목록 조회", description = "개별 사용자의 전체 알림 목록을 페이지네이션하여 조회합니다.")
+    @GetMapping("/paged")
+    public BaseResponse<Page<AlertResponseDto>> getPagedAlerts(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PageableDefault(size = 10, sort = "alert.timestamp", direction = Sort.Direction.DESC) Pageable pageable) {
+
+        log.info("[페이징 알림 목록 조회] 컨트롤러 진입");
+
+        if (userPrincipal == null) {
+            log.error("[페이징 알림 목록 조회] 실패 : 인증되지 않은 사용자");
+            throw new BaseException(BaseResponseStatus.UNAUTHORIZED);
+        }
+
+        return new BaseResponse<>(BaseResponseStatus.SUCCESS,
+                alertService.getPagedAlertsForUser(userPrincipal.getEmployeeId(), pageable));
     }
 
     @Operation(summary = "알림 개별 상태 변경", description = "알림의 개별 읽음 여부를 변경합니다.")

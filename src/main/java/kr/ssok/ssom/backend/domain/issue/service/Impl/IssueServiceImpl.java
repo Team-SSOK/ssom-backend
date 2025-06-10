@@ -31,7 +31,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class IssueServiceImpl implements IssueService {
     
     private final IssueRepository issueRepository;
@@ -355,15 +354,15 @@ public class IssueServiceImpl implements IssueService {
                 case "closed":
                     issueEntity.updateStatus(IssueStatus.CLOSED);
                     issueRepository.save(issueEntity);
-                    log.info("[Github 이슈 상태 변경] 이슈 상태를 CLOSED로 변경");
+                    log.info("[Github 이슈 상태 변경] 이슈 상태를 CLOSED로 변경, issueEntity.status = {}", issueEntity.getStatus());
                     break;
                 case "reopened":
                     issueEntity.updateStatus(IssueStatus.OPEN);
                     issueRepository.save(issueEntity);
-                    log.info("[Github 이슈 상태 변경] 이슈 상태를 OPEN으로 변경");
+                    log.info("[Github 이슈 상태 변경] 이슈 상태를 OPEN으로 변경, issueEntity.status = {}", issueEntity.getStatus());
                     break;
                 case "opened":
-                    log.info("[Github 이슈 상태 변경] opened 이슈는 상태 변경하지 않음.");
+                    log.info("[Github 이슈 상태 변경] opened 이슈는 상태 변경하지 않음., issueEntity.status = {}", issueEntity.getStatus());
                     break;
                 default:
                     log.warn("[Github 이슈 상태 변경] 지원하지 않는 action 값: {}", requestDto.getAction());

@@ -55,6 +55,10 @@ dependencies {
     // Boot
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    
+    // JUnit Platform Suite for @Suite and @SelectClasses annotations
+    testImplementation 'org.junit.platform:junit-platform-suite-api:1.11.4'
+    testImplementation 'org.junit.platform:junit-platform-suite-engine:1.11.4'
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
     // JWT 의존성

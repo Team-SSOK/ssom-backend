@@ -26,7 +26,7 @@ public class AlertResponseDto {
     @JsonProperty("isRead")
     private boolean isRead;
 
-    private OffsetDateTime timestamp;
+    private String timestamp;
     private LocalDateTime createdAt;
     private String employeeId;
 

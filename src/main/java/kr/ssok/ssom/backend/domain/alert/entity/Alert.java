@@ -40,7 +40,8 @@ public class Alert {
     private AlertKind kind;
 
     //발생 시간
-    private OffsetDateTime timestamp;
+    @Column(name = "timestamp")
+    private String timestamp;
 
     //발송 시간
     @CreationTimestamp

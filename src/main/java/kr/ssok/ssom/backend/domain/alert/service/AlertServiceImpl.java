@@ -455,21 +455,12 @@ public class AlertServiceImpl implements AlertService {
             }
 
             // 2. Alert 저장
-            String createdAtStr = requestDto.getIssue().getCreatedAt();
-            OffsetDateTime createdAt;
-            try {
-                createdAt = OffsetDateTime.parse(createdAtStr);
-            } catch (DateTimeParseException e) {
-                log.warn("[Github 이슈 알림] createdAt 파싱 실패, 기본값 현재 시간 사용: {}", createdAtStr);
-                createdAt = OffsetDateTime.now();
-            }
-
             Alert alert = Alert.builder()
                     .id(AlertKind.ISSUE + "_noNeedId")
                     .title(alertTitle)
                     .message("Github 이슈가 공유되었습니다.")
                     .kind(AlertKind.ISSUE)
-                    .timestamp(createdAt)
+                    .timestamp(requestDto.getIssue().getCreatedAt())
                     .build();
             alertRepository.save(alert);
 
@@ -574,15 +565,19 @@ public class AlertServiceImpl implements AlertService {
         log.info("[알림 생성] 알림 저장 및 전송 진행 중 ...");
 
         try {
-            // 1. Alert 저장
+            // 1. timestamp 초까지만 저장
+            String trimmedTimestamp = request.getTimestamp().length() >= 19
+                    ? request.getTimestamp().substring(0, 19)
+                    : request.getTimestamp();
+
+            // 2. Alert 저장
             Alert alert = Alert.builder()
                     .id(request.getId())
-                    .title("[" + request.getLevel() + "] " + request.getApp())  // [ERROR] ssok-bank
-                    .message(request.getMessage())                              // Authentication error: Authorization header is missing or invalid
-                    .kind(kind)                                                 // OPENSEARCH
-                    .timestamp(request.getTimestamp())                          // 2025-05-30T08:37:50.772492854+00:00
+                    .title("[" + request.getLevel() + "] " + request.getApp())
+                    .message(request.getMessage())
+                    .kind(kind)
+                    .timestamp(trimmedTimestamp)
                     .build();
-            alertRepository.save(alert);
 
             // 2. 전체 사용자 가져오기
             List<User> users = userRepository.findAll();

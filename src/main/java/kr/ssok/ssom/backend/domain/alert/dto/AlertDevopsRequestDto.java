@@ -15,9 +15,6 @@ import java.time.OffsetDateTime;
 public class AlertDevopsRequestDto {
     private String level;
     private String app;
-
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    private OffsetDateTime timestamp;
-
+    private String timestamp;
     private String message;
 }

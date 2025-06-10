@@ -31,7 +31,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class IssueServiceImpl implements IssueService {
     
     private final IssueRepository issueRepository;

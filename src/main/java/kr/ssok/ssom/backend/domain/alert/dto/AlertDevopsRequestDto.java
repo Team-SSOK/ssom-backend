@@ -1,5 +1,6 @@
 package kr.ssok.ssom.backend.domain.alert.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -14,6 +15,9 @@ import java.time.OffsetDateTime;
 public class AlertDevopsRequestDto {
     private String level;
     private String app;
+
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private OffsetDateTime timestamp;
+
     private String message;
 }

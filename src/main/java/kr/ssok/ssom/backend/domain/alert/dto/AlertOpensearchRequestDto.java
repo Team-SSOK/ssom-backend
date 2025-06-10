@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AlertOpensearchRequestDto {
-//    private String request;
     private String id;          // 예 : 5x7xHpcBfhJZWUSwpfCE
     private String level;       // 예 : ERROR     -> title
     private String app;         // 예 : ssok-bank -> title

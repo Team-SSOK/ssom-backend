@@ -27,6 +27,7 @@ public class AlertIssueRequestDto {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Issue {
+        private Long number;
 
         private List<Assignee> assignees;
 
@@ -34,6 +35,8 @@ public class AlertIssueRequestDto {
         private String createdAt;
 
         private List<Label> labels;
+
+        public Long getNumber() { return number; }
 
         public List<Assignee> getAssignees() {
             return assignees;

@@ -21,6 +21,7 @@ bin/
 application.yaml
 application.yml
 application.properties
+application-test.yml
 .idea
 *.iws
 *.iml

@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import kr.ssok.ssom.backend.domain.alert.dto.*;
 import kr.ssok.ssom.backend.domain.alert.service.AlertService;
+import kr.ssok.ssom.backend.domain.issue.service.IssueService;
 import kr.ssok.ssom.backend.domain.user.security.principal.UserPrincipal;
 import kr.ssok.ssom.backend.global.dto.GitHubIssueResponseDto;
 import kr.ssok.ssom.backend.global.exception.BaseException;
@@ -32,6 +33,7 @@ import java.util.List;
 public class AlertController {
 
     private final AlertService alertService;
+    private final IssueService issueService;
 
     @Operation(summary = "알림 SSE 구독", description = "알림에 대해 SSE 구독을 진행합니다.")
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -193,6 +195,8 @@ public class AlertController {
         log.info("[Github 이슈 알림] 컨트롤러 진입");
 
         alertService.createIssueAlert(requestDto);
+        issueService.updateGitHubIssueStatus(requestDto);
+
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));

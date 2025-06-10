@@ -29,7 +29,8 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
             AuthenticationException authException) throws IOException {
         
         String requestUri = request.getRequestURI();
-        log.error("Unauthorized error for request [{}]: {}", requestUri, authException.getMessage());
+        String errorMessage = authException != null ? authException.getMessage() : "Authentication failed";
+        log.error("Unauthorized error for request [{}]: {}", requestUri, errorMessage);
         
         // 응답이 이미 커밋된 경우 처리하지 않음 (SSE 등의 경우)
         if (response.isCommitted()) {

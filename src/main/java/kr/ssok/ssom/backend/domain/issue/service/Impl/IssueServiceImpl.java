@@ -1,5 +1,6 @@
 package kr.ssok.ssom.backend.domain.issue.service.Impl;
 
+import kr.ssok.ssom.backend.domain.alert.dto.AlertIssueRequestDto;
 import kr.ssok.ssom.backend.domain.issue.dto.*;
 import kr.ssok.ssom.backend.domain.issue.entity.Issue;
 import kr.ssok.ssom.backend.domain.issue.entity.constant.IssueStatus;
@@ -213,7 +214,7 @@ public class IssueServiceImpl implements IssueService {
         
         return IssueResponseDto.from(issue);
     }
-    
+
     /**
      * 담당자들의 GitHub ID 수집
      */
@@ -324,5 +325,54 @@ public class IssueServiceImpl implements IssueService {
      */
     private List<String> getDefaultLabels() {
         return List.of("ssom", "bug");
+    }
+
+    /**
+     * Issue Status 변경
+     */
+    @Override
+    public void updateGitHubIssueStatus(AlertIssueRequestDto requestDto) {
+        log.info("[Github 이슈 상태 변경] action : {}", requestDto.getAction());
+
+        try {
+            // 0. 'ssom' 또는 'SSOM' 라벨이 있는지 확인
+            boolean hasSsomLabel = requestDto.getIssue().getLabels().stream()
+                    .anyMatch(label -> label.getName().equalsIgnoreCase("ssom"));
+
+            if (!hasSsomLabel) {
+                log.info("[Github 이슈 상태 변경] 'ssom' 라벨이 없어 상태를 변경하지 않음");
+                return;
+            }
+
+            String action = requestDto.getAction().toLowerCase(); // 예: "closed", "reopened"
+
+            Issue issueEntity = issueRepository.findByGithubIssueNumber(requestDto.getIssue().getNumber())
+                    .orElseThrow(() -> new BaseException(BaseResponseStatus.NOT_FOUND_ISSUE));
+
+            switch (action) {
+                case "closed":
+                    issueEntity.updateStatus(IssueStatus.CLOSED);
+                    issueRepository.save(issueEntity);
+                    log.info("[Github 이슈 상태 변경] 이슈 상태를 CLOSED로 변경");
+                    break;
+                case "reopened":
+                    issueEntity.updateStatus(IssueStatus.OPEN);
+                    issueRepository.save(issueEntity);
+                    log.info("[Github 이슈 상태 변경] 이슈 상태를 OPEN으로 변경");
+                    break;
+                case "opened":
+                    log.info("[Github 이슈 상태 변경] opened 이슈는 상태 변경하지 않음.");
+                    break;
+                default:
+                    log.warn("[Github 이슈 상태 변경] 지원하지 않는 action 값: {}", requestDto.getAction());
+                    break;
+            }
+        } catch (BaseException e) {
+            log.error("[Github 이슈 상태 변경] 처리 중 예외 발생 - {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("[Github 이슈 상태 변경] 알 수 없는 오류 발생", e);
+            throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }

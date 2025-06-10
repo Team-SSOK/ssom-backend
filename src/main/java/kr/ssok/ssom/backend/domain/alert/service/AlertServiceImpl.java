@@ -425,7 +425,7 @@ public class AlertServiceImpl implements AlertService {
      */
     @Override
     public void createIssueAlert(AlertIssueRequestDto requestDto) {
-        log.info("[Github 이슈 알림] 서비스 진입 : requestDto = {}", requestDto);
+        log.info("[Github 이슈 알림] 서비스 진입 : action = {}", requestDto.getAction());
 
         try {
             // 0. 'ssom' 또는 'SSOM' 라벨이 있는지 확인

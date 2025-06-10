@@ -1,5 +1,6 @@
 package kr.ssok.ssom.backend.domain.issue.service;
 
+import kr.ssok.ssom.backend.domain.alert.dto.AlertIssueRequestDto;
 import kr.ssok.ssom.backend.domain.issue.dto.*;
 import kr.ssok.ssom.backend.global.dto.LlmIssueResponseDto;
 
@@ -47,4 +48,10 @@ public interface IssueService {
      * @return Issue 상세 정보
      */
     IssueResponseDto getIssue(Long issueId, String employeeId);
+
+    /**
+     * GitHub Issue Status 변경
+     * @param requestDto GitHub Issue payload
+     */
+    void updateGitHubIssueStatus(AlertIssueRequestDto requestDto);
 }

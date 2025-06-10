@@ -9,7 +9,7 @@ import java.util.List;
 
 public interface AlertStatusRepository extends JpaRepository<AlertStatus, Long> {
 
-    List<AlertStatus> findByUser_IdAndAlert_TimestampAfterOrderByAlert_TimestampDesc(String userId, LocalDateTime timestamp);;
+    List<AlertStatus> findByUser_IdAndAlert_CreatedAtAfterOrderByAlert_TimestampDesc(String userId, LocalDateTime timestamp);;
 
     List<AlertStatus> findByUser_IdAndIsReadFalse(String employeeId);
     List<AlertStatus> findByUser_IdOrderByAlert_CreatedAtDesc(String employeeId);

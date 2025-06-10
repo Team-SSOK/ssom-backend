@@ -183,7 +183,7 @@ public class AlertServiceImpl implements AlertService {
         try {
             // 2. 알림 목록 조회
             LocalDateTime oneWeekAgo = LocalDateTime.now().minusWeeks(1);
-            List<AlertStatus> alertStatusList = alertStatusRepository.findByUser_IdAndAlert_TimestampAfterOrderByAlert_TimestampDesc(employeeId, oneWeekAgo);
+            List<AlertStatus> alertStatusList = alertStatusRepository.findByUser_IdAndAlert_CreatedAtAfterOrderByAlert_TimestampDesc(employeeId, oneWeekAgo);
 
             if (alertStatusList.isEmpty()) {
                 log.info("[전체 알림 목록 조회] 알림 없음 : employeeId = {}", employeeId);

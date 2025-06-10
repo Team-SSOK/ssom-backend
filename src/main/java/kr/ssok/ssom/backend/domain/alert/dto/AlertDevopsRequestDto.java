@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.OffsetDateTime;
+
 @Tag(name = "AlertSendRequestDto", description = "DevOps에서 보내주는 포맷")
 @Getter
 @NoArgsConstructor
@@ -12,6 +14,6 @@ import lombok.NoArgsConstructor;
 public class AlertDevopsRequestDto {
     private String level;
     private String app;
-    private String timestamp;
+    private OffsetDateTime timestamp;
     private String message;
 }

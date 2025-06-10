@@ -21,6 +21,8 @@ import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -195,6 +197,35 @@ public class AlertServiceImpl implements AlertService {
 
         } catch (Exception e) {
             log.error("[전체 알림 목록 조회] 오류 발생 : employeeId = {}, error = {}", employeeId, e.getMessage(), e);
+            throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * 페이징 알림 목록 조회
+     *
+     * @param employeeId
+     * @param pageable
+     * @return
+     */
+    @Override
+    public Page<AlertResponseDto> getPagedAlertsForUser(String employeeId, Pageable pageable) {
+        log.info("[페이징 알림 목록 조회] 서비스 진입 : employeeId = {}", employeeId);
+
+        if (employeeId == null || employeeId.trim().isEmpty()) {
+            log.error("[페이징 알림 목록 조회] 오류 : 잘못된 employeeId = {}", employeeId);
+            throw new BaseException(BaseResponseStatus.BAD_REQUEST);
+        }
+
+        try {
+            LocalDateTime oneWeekAgo = LocalDateTime.now().minusWeeks(1);
+            Page<AlertStatus> alertStatusPage = alertStatusRepository
+                    .findByUser_IdAndAlert_CreatedAtAfter(employeeId, oneWeekAgo, pageable);
+
+            return alertStatusPage.map(AlertResponseDto::from);
+
+        } catch (Exception e) {
+            log.error("[페이징 알림 목록 조회] 오류 발생 : employeeId = {}, error = {}", employeeId, e.getMessage(), e);
             throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR);
         }
     }

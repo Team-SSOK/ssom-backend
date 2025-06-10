@@ -138,7 +138,7 @@ public class SecurityConfig {
                 
                 // 비동기 요청 지원 활성화 (SSE 포함)
                 .headers(headers -> headers
-                    .frameOptions().sameOrigin()
+                    .frameOptions(frameOptions -> frameOptions.sameOrigin())
                     .httpStrictTransportSecurity(hstsConfig -> hstsConfig.disable())
                 )
                 

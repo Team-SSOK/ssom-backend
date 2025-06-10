@@ -7,6 +7,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,7 +40,7 @@ public class Alert {
     private AlertKind kind;
 
     //발생 시간
-    private String timestamp;
+    private OffsetDateTime timestamp;
 
     //발송 시간
     @CreationTimestamp

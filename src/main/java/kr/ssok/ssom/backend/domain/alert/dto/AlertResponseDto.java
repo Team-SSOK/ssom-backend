@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Tag(name = "AlertResponseDto", description = "알림 전송을 위한 공통 포맷")
 @Getter
@@ -25,7 +26,7 @@ public class AlertResponseDto {
     @JsonProperty("isRead")
     private boolean isRead;
 
-    private String timestamp;
+    private OffsetDateTime timestamp;
     private LocalDateTime createdAt;
     private String employeeId;
 

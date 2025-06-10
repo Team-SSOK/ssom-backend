@@ -574,6 +574,8 @@ public class AlertServiceImpl implements AlertService {
                     .timestamp(request.getTimestamp())
                     .build();
 
+            alertRepository.save(alert);
+
             // 2. 전체 사용자 가져오기
             List<User> users = userRepository.findAll();
 

@@ -332,7 +332,7 @@ public class IssueServiceImpl implements IssueService {
      */
     @Override
     public void updateGitHubIssueStatus(AlertIssueRequestDto requestDto) {
-        log.info("[Github 이슈 상태 변경] action : {}", requestDto.getAction());
+        log.info("[Github 이슈 상태 변경] issueNumber = {}, action = {}", requestDto.getIssue().getNumber(), requestDto.getAction());
 
         try {
             // 0. 'ssom' 또는 'SSOM' 라벨이 있는지 확인
@@ -348,6 +348,8 @@ public class IssueServiceImpl implements IssueService {
 
             Issue issueEntity = issueRepository.findByGithubIssueNumber(requestDto.getIssue().getNumber())
                     .orElseThrow(() -> new BaseException(BaseResponseStatus.NOT_FOUND_ISSUE));
+
+            log.info("[Github 이슈 상태 변경] issueId = {}", issueEntity.getIssueId());
 
             switch (action) {
                 case "closed":

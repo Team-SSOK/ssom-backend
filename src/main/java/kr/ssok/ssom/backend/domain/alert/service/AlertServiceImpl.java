@@ -565,18 +565,13 @@ public class AlertServiceImpl implements AlertService {
         log.info("[알림 생성] 알림 저장 및 전송 진행 중 ...");
 
         try {
-            // 1. timestamp 초까지만 저장
-            String trimmedTimestamp = request.getTimestamp().length() >= 19
-                    ? request.getTimestamp().substring(0, 19)
-                    : request.getTimestamp();
-
             // 2. Alert 저장
             Alert alert = Alert.builder()
                     .id(request.getId())
                     .title("[" + request.getLevel() + "] " + request.getApp())
                     .message(request.getMessage())
                     .kind(kind)
-                    .timestamp(trimmedTimestamp)
+                    .timestamp(request.getTimestamp())
                     .build();
 
             // 2. 전체 사용자 가져오기

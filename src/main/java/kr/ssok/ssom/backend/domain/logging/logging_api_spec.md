@@ -51,9 +51,9 @@
 
 - **Request Params**
 
-  | 매개변수 | 타입 | 필수 여부 | 설명 |
-      | --- | --- | --- | --- |
-  | app | String | false | 사용자의 현재 필터링 조건 |
+  | 매개변수  | 타입     | 필수 여부 | 설명             |
+  |-------|--------|-------|----------------|
+  | app   | String | false | 사용자의 현재 필터링 조건 |
   | level | String | false | 사용자의 현재 필터링 조건 |
 
 ---
@@ -64,7 +64,7 @@
 - **Headers**
 
   | 헤더명           | 설명               |
-      |---------------|------------------|
+  |---------------|------------------|
   | Authorization | `Bearer <token>` |
 
 - **Response (200)**
@@ -101,15 +101,15 @@
 - **Headers**
 
   | 헤더명           | 설명               |
-        |---------------|------------------|
+  |---------------|------------------|
   | Authorization | `Bearer <token>` |
 
 - **Request Params**
 
-  | 매개변수 | 타입 | 필수 여부 | 설명           |
-        | --- | --- | --- |--------------|
-  | app | String | false | 로그가 발생한 서비스 (예: ssok-account-service) |
-  | level | String | false | 로그 레벨 (예: WARN, ERROR)       |
+  | 매개변수  | 타입     | 필수 여부 | 설명                                    |
+  |-------|--------|-------|---------------------------------------|
+  | app   | String | false | 로그가 발생한 서비스 (예: ssok-account-service) |
+  | level | String | false | 로그 레벨 (예: WARN, ERROR)                |
 
 - **Response (200)**
 
@@ -160,17 +160,17 @@
 - **Headers**
 
   | 헤더명           | 설명               |
-          |---------------|------------------|
+  |---------------|------------------|
   | Authorization | `Bearer <token>` |
 
 - **Request Params**
 
-  | 매개변수 | 타입 | 필수 여부 | 설명 |
-    | --- | --- | --- | --- |
-  | app | String | false | 로그가 발생한 서비스 (예: ssok-account-service) |
-  | level | String | false | 로그 레벨 (예: WARN, ERROR) |
-  | searchAfterTimestamp | String | false | 이전에 마지막으로 조회한 로그의 timestamp |
-  | searchAfterId | String | false | 이전에 마지막으로 조회한 로그의 로그 ID |
+  | 매개변수                 | 타입     | 필수 여부 | 설명                                    |
+  |----------------------|--------|-------|---------------------------------------|
+  | app                  | String | false | 로그가 발생한 서비스 (예: ssok-account-service) |
+  | level                | String | false | 로그 레벨 (예: WARN, ERROR)                |
+  | searchAfterTimestamp | String | false | 이전에 마지막으로 조회한 로그의 timestamp           |
+  | searchAfterId        | String | false | 이전에 마지막으로 조회한 로그의 로그 ID               |
 
 - **Response (200)**
 
@@ -304,7 +304,7 @@
 - **Headers**
 
   | 헤더명           | 설명               |
-        |---------------|------------------|
+  |---------------|------------------|
   | Authorization | `Bearer <token>` |
 
 - **Response (200)**
@@ -334,7 +334,7 @@
 - **Headers**
 
   | 헤더명           | 설명               |
-        |---------------|------------------|
+  |---------------|------------------|
   | Authorization | `Bearer <token>` |
 
 - **Request Body**
@@ -377,7 +377,7 @@
 - **Headers**
 
   | 헤더명           | 설명               |
-        |---------------|------------------|
+  |---------------|------------------|
   | Authorization | `Bearer <token>` |
 
 - **Response (200)**

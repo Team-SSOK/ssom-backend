@@ -49,6 +49,22 @@ public class LoggingController {
 
     }
 
+    // 로그 목록 조회 (무한 스크롤 방식)
+    @GetMapping("/infinitescroll")
+    public ResponseEntity<BaseResponse<LogsScrollResponseDto>> getLogsInfiniteScroll(
+            @RequestParam(required = false) String app,
+            @RequestParam(required = false) String level,
+            @RequestParam(required = false) String searchAfterTimestamp,
+            @RequestParam(required = false) String searchAfterId) throws Exception {
+
+        log.info("로그 목록 조회 요청: app={}, level={}, searchAfterTimestamp={}, searchAfterId={}",
+                app, level, searchAfterTimestamp, searchAfterId);
+
+        LogsScrollResponseDto response = loggingService.getLogsInfiniteScroll(app, level, searchAfterTimestamp, searchAfterId);
+
+        return ResponseEntity.ok(new BaseResponse<>(BaseResponseStatus.SUCCESS, response));
+    }
+
     // 오픈서치에서 보내주는 실시간 로그
     @PostMapping("/opensearch")
     public ResponseEntity<BaseResponse<Void>> sendOpensearchLogging(@RequestBody String requestStr) {

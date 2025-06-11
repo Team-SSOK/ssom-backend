@@ -17,10 +17,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.FieldValue;
+import org.opensearch.client.opensearch._types.SortOptions;
 import org.opensearch.client.opensearch._types.SortOrder;
 import org.opensearch.client.opensearch._types.aggregations.StringTermsBucket;
 import org.opensearch.client.opensearch._types.query_dsl.BoolQuery;
 import org.opensearch.client.opensearch.core.*;
+import org.opensearch.client.opensearch.core.search.Hit;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -150,6 +152,100 @@ public class LoggingServiceImpl implements LoggingService {
             }
 
             return new LogsResponseDto(deduplicated);
+        } catch (Exception e) {
+            throw new BaseException(BaseResponseStatus.LOGS_READ_FAILED);
+        }
+
+    }
+
+    /**
+     * 로그 목록 조회 (무한 스크롤)
+     */
+    @Override
+    public LogsScrollResponseDto getLogsInfiniteScroll(String app, String level, String searchAfterTimestamp, String searchAfterId) {
+
+        try {
+            // 동적 bool 쿼리 빌더
+            BoolQuery.Builder boolQuery = new BoolQuery.Builder();
+
+            if (StringUtils.hasText(app)) {
+                boolQuery.must(m -> m.match(match -> match.field("app.keyword").query(FieldValue.of(app))));
+            }
+
+            if (StringUtils.hasText(level)) {
+                boolQuery.must(m -> m.match(match -> match.field("level").query(FieldValue.of(level))));
+            } else {
+                // level이 없으면 기본적으로 ERROR + WARN
+                boolQuery.must(m -> m.terms(t -> t.field("level.keyword").terms(
+                        ts -> ts.value(List.of(FieldValue.of("ERROR"), FieldValue.of("WARN")))
+                )));
+            }
+
+            // 정렬 기준
+            List<SortOptions> sortOptions = List.of(
+                    new SortOptions.Builder()
+                            .field(f -> f.field("@timestamp").order(SortOrder.Desc))
+                            .build(),
+                    new SortOptions.Builder()
+                            .field(f -> f.field("_id").order(SortOrder.Desc))
+                            .build()
+            );
+
+            // search_after 설정
+            List<String> searchAfterValues = null;
+            if (searchAfterTimestamp != null && searchAfterId != null) {
+                searchAfterValues = List.of(searchAfterTimestamp, searchAfterId);
+            }
+
+            // 검색 요청
+            SearchRequest.Builder requestBuilder = new SearchRequest.Builder()
+                    .index("ssok-app")
+                    .query(q -> q.bool(boolQuery.build()))
+                    .sort(sortOptions)
+                    .source(s -> s.filter(f -> f.includes("@timestamp", "level", "logger", "thread", "message", "app")))
+                    .size(100); // 페이지 크기
+
+            if (searchAfterValues != null) {
+                requestBuilder.searchAfter(searchAfterValues);
+            }
+
+            SearchResponse<LogDataDto> response = openSearchClient.search(requestBuilder.build(), LogDataDto.class);
+
+            List<LogDto> result = response.hits().hits().stream()
+                    .map(hit -> {
+                        LogDataDto source = hit.source();
+                        LogDto dto = new LogDto();
+                        dto.setLogId(hit.id());
+                        dto.setApp(source.getApp());
+                        dto.setTimestamp(source.getTimestamp());
+                        dto.setLevel(source.getLevel());
+                        dto.setLogger(source.getLogger());
+                        dto.setThread(source.getThread());
+                        dto.setMessage(source.getMessage());
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
+            // 중복 제거: 연속된 같은 message만 하나만 남기기
+            List<LogDto> deduplicated = new ArrayList<>();
+            LogDto prev = null;
+            for (LogDto current : result) {
+                if (prev == null || !current.getMessage().equals(prev.getMessage())) {
+                    deduplicated.add(current);
+                }
+                prev = current;
+            }
+
+            // 마지막 정렬 기준 정보 포함 (클라이언트가 다음 페이지 요청 시 사용)
+            String lastTimestamp = null;
+            String lastId = null;
+            if (!response.hits().hits().isEmpty()) {
+                Hit<LogDataDto> lastHit = response.hits().hits().get(response.hits().hits().size() - 1);
+                lastTimestamp = lastHit.sort().get(0);
+                lastId = lastHit.id();
+            }
+
+            return new LogsScrollResponseDto(deduplicated, lastTimestamp, lastId);
         } catch (Exception e) {
             throw new BaseException(BaseResponseStatus.LOGS_READ_FAILED);
         }

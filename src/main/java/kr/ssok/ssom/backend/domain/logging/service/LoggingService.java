@@ -24,6 +24,16 @@ public interface LoggingService {
      */
     LogsResponseDto getLogs(String app, String level);
 
+    /**
+     * OpenSearch로부터 로그 목록 조회 (무한 스크롤 방식)
+     * @param app 필터링 조건 (서비스)
+     * @param level 필터링 조건 (로그 레벨)
+     * @param searchAfterTimestamp 이전 요청의 마지막 로그 타임스탬프
+     * @param searchAfterId 이전 요청의 마지막 로그 ID
+     * @return 로그 목록
+     */
+    LogsScrollResponseDto getLogsInfiniteScroll(String app, String level, String searchAfterTimestamp, String searchAfterId);
+
 
     /**
      * SSE 구독

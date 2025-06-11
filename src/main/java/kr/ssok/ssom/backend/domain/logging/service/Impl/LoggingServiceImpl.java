@@ -192,9 +192,9 @@ public class LoggingServiceImpl implements LoggingService {
             );
 
             // search_after 설정
-            List<FieldValue> searchAfterValues = null;
+            List<String> searchAfterValues = null;
             if (searchAfterTimestamp != null && searchAfterId != null) {
-                searchAfterValues = List.of(FieldValue.of(searchAfterTimestamp), FieldValue.of(searchAfterId));
+                searchAfterValues = List.of(searchAfterTimestamp, searchAfterId);
             }
 
             // 검색 요청
@@ -206,7 +206,7 @@ public class LoggingServiceImpl implements LoggingService {
                     .size(100); // 페이지 크기
 
             if (searchAfterValues != null) {
-                requestBuilder.searchAfter(searchAfterValues.toString());
+                requestBuilder.searchAfter(searchAfterValues);
             }
 
             SearchResponse<LogDataDto> response = openSearchClient.search(requestBuilder.build(), LogDataDto.class);

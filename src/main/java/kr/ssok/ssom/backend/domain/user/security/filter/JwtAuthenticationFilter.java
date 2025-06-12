@@ -95,20 +95,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // 블랙리스트 확인
-            String blacklistKey = BLACKLIST_TOKEN_PREFIX + token;
-            Boolean isBlacklisted = redisTemplate.hasKey(blacklistKey);
-            if (Boolean.TRUE.equals(isBlacklisted)) {
-                log.warn("Blacklisted token used for path: {}", requestPath);
-                
-                // SSE 요청의 경우 특별 처리
-                if (isSseRequest) {
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            // SSE 토큰인 경우 블랙리스트 확인 생략 (장기 토큰이므로)
+            boolean isSseToken = jwtTokenProvider.isSseToken(token);
+            
+            // 일반 토큰인 경우에만 블랙리스트 확인
+            if (!isSseToken) {
+                String blacklistKey = BLACKLIST_TOKEN_PREFIX + token;
+                Boolean isBlacklisted = redisTemplate.hasKey(blacklistKey);
+                if (Boolean.TRUE.equals(isBlacklisted)) {
+                    log.warn("Blacklisted token used for path: {}", requestPath);
+                    
+                    // SSE 요청의 경우 특별 처리
+                    if (isSseRequest) {
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        return;
+                    }
+                    
+                    sendErrorResponse(response, "Token is blacklisted", HttpServletResponse.SC_UNAUTHORIZED);
                     return;
                 }
-                
-                sendErrorResponse(response, "Token is blacklisted", HttpServletResponse.SC_UNAUTHORIZED);
-                return;
             }
 
             // 토큰에서 사용자 ID 추출

@@ -169,6 +169,7 @@ public class BiometricServiceImpl implements BiometricService {
             // 7. JWT 토큰 생성
             String accessToken = jwtTokenProvider.createAccessToken(user.getId());
             String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+            String sseToken = jwtTokenProvider.createSseToken(user.getId()); // SSE 토큰 추가
 
             // 토큰 만료 시간 계산
             long expirationTime = jwtTokenProvider.getTokenExpirationTime(refreshToken);
@@ -197,6 +198,7 @@ public class BiometricServiceImpl implements BiometricService {
             return LoginResponseDto.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
+                .sseToken(sseToken) // SSE 토큰 추가
                 .username(user.getUsername())
                 .department(user.getDepartment().getPrefix())
                 .expiresIn(expirationTime)

@@ -28,6 +28,9 @@ public class JwtTokenProvider {
     @Value("${jwt.refresh-token-validity-in-seconds}")
     private long refreshTokenValidityInSeconds;
 
+    @Value("${jwt.sse-token-validity-in-seconds}")
+    private long sseTokenValidityInSeconds;
+
     private Key key;
 
     @PostConstruct
@@ -58,6 +61,16 @@ public class JwtTokenProvider {
     }
 
     /**
+     * SSE 전용 장기 토큰을 생성합니다.
+     * 
+     * @param userId 사용자 ID
+     * @return 생성된 JWT SSE Token
+     */
+    public String createSseToken(String userId) {
+        return createSseTokenInternal(userId, sseTokenValidityInSeconds * 1000);
+    }
+
+    /**
      * 토큰 생성 메소드
      */
     private String createToken(String userId, long validityInMilliseconds) {
@@ -66,6 +79,25 @@ public class JwtTokenProvider {
 
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
+
+        return Jwts.builder()
+                .setClaims(claims)
+                .setIssuedAt(now)
+                .setExpiration(validity)
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    /**
+     * SSE 토큰 생성 메소드 (type 클레임 추가)
+     */
+    private String createSseTokenInternal(String userId, long validityInMilliseconds) {
+        Date now = new Date();
+        Date validity = new Date(now.getTime() + validityInMilliseconds);
+
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", userId);
+        claims.put("tokenType", "SSE"); // SSE 토큰임을 명시
 
         return Jwts.builder()
                 .setClaims(claims)
@@ -108,6 +140,28 @@ public class JwtTokenProvider {
             return true;
         } catch (JwtException | IllegalArgumentException e) {
             log.error("Invalid JWT token: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * SSE 토큰 여부 확인
+     * 
+     * @param token JWT 토큰
+     * @return SSE 토큰이면 true, 일반 토큰이면 false
+     */
+    public boolean isSseToken(String token) {
+        try {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+
+            String tokenType = (String) claims.get("tokenType");
+            return "SSE".equals(tokenType);
+        } catch (Exception e) {
+            log.debug("Could not check token type: {}", e.getMessage());
             return false;
         }
     }

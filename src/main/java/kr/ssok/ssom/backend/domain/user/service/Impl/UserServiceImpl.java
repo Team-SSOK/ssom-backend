@@ -127,6 +127,7 @@ public class UserServiceImpl implements UserService {
         // 토큰 생성 (사원번호를 userId로 사용)
         String accessToken = jwtTokenProvider.createAccessToken(user.getId());
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+        String sseToken = jwtTokenProvider.createSseToken(user.getId()); // SSE 토큰 추가
 
         // Refresh Token을 Redis에 저장
         String refreshTokenKey = REFRESH_TOKEN_PREFIX + user.getId();
@@ -151,6 +152,7 @@ public class UserServiceImpl implements UserService {
         return LoginResponseDto.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
+                .sseToken(sseToken) // SSE 토큰 추가
                 .username(user.getUsername())
                 .department(user.getDepartment().getPrefix()) // 부서 정보 prefix 값으로 응답
                 .expiresIn(expirationTime)
@@ -192,6 +194,7 @@ public class UserServiceImpl implements UserService {
         // 새 토큰 생성
         String newAccessToken = jwtTokenProvider.createAccessToken(user.getId());
         String newRefreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+        String newSseToken = jwtTokenProvider.createSseToken(user.getId()); // SSE 토큰 추가
 
         // 기존 Refresh Token 삭제
         redisTemplate.delete(refreshTokenKey);
@@ -212,6 +215,7 @@ public class UserServiceImpl implements UserService {
         return LoginResponseDto.builder()
                 .accessToken(newAccessToken)
                 .refreshToken(newRefreshToken)
+                .sseToken(newSseToken) // SSE 토큰 추가
                 .username(user.getUsername())
                 .department(user.getDepartment().getPrefix())
                 .expiresIn(expirationTime)

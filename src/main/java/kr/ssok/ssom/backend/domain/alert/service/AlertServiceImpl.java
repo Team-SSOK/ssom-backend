@@ -18,7 +18,6 @@ import kr.ssok.ssom.backend.domain.user.entity.User;
 import kr.ssok.ssom.backend.domain.user.repository.UserRepository;
 import kr.ssok.ssom.backend.global.client.FirebaseClient;
 import kr.ssok.ssom.backend.global.dto.FcmMessageRequestDto;
-import kr.ssok.ssom.backend.global.dto.GitHubIssueResponseDto;
 import kr.ssok.ssom.backend.global.exception.BaseException;
 import kr.ssok.ssom.backend.global.exception.BaseResponseStatus;
 import lombok.RequiredArgsConstructor;
@@ -32,8 +31,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

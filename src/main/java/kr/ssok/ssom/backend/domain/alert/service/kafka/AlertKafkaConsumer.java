@@ -46,7 +46,7 @@ public class AlertKafkaConsumer {
     @KafkaListener(topics = "#{@kafkaConfig.alertCreatedTopic().name()}", containerFactory = "kafkaListenerContainerFactory")
     @Transactional
     public void handleAlertCreated(
-            @Payload AlertCreatedEvent event,
+            AlertCreatedEvent event,
             @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
             @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
             @Header(KafkaHeaders.OFFSET) long offset,

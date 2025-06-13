@@ -94,7 +94,7 @@ class LoginResponseDtoTest {
 
         // when
         LoginResponseDto loginResponseDto = new LoginResponseDto(
-                accessToken, refreshToken, username, department, 
+                accessToken, refreshToken, null, username, department, 
                 expiresIn, biometricEnabled, lastLoginAt
         );
 

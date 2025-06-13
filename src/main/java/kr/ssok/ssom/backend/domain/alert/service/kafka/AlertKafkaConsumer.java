@@ -113,7 +113,7 @@ public class AlertKafkaConsumer {
                     .orElseThrow(() -> new RuntimeException("User not found: " + event.getUserId()));
             
             // 중복 처리 방지 (멱등성 보장)
-            if (alertStatusRepository.existsByAlert_IdAndUser_Id(event.getAlertId(), event.getUserId())) {
+            if (alertStatusRepository.existsByAlert_AlertIdAndUser_Id(event.getAlertId(), event.getUserId())) {
                 log.info("[Kafka Consumer] 이미 처리된 알림 - alertId: {}, userId: {}", 
                         event.getAlertId(), event.getUserId());
                 acknowledgment.acknowledge();

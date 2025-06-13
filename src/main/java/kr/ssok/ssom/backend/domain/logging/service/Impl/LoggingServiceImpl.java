@@ -257,79 +257,192 @@ public class LoggingServiceImpl implements LoggingService {
      */
     @Override
     public SseEmitter subscribe(String employeeId, String app, String level, HttpServletResponse response){
-        log.info("[로그 SSE 구독] 서비스 진입");
+        log.info("[로그 SSE 구독] 서비스 진입 : employeeId = {}, app = {}, level = {}", employeeId, app, level);
 
-        // 1. 기존 emitter 제거
-        if (emitters.containsKey(employeeId)) {
-            EmitterWithFilter wrapper = emitters.remove(employeeId);
-            if (wrapper != null) {
-                try {
-                    SseEmitter oldEmitter = wrapper.getEmitter();
-                    oldEmitter.complete();  // 또는 .completeWithError(new IOException("reconnect"));
-                    log.info("[로그 SSE 구독] 기존 emitter 제거 완료");
-                } catch (Exception e) {
-                    log.warn("[로그 SSE 구독] 기존 emitter 제거 중 예외 발생: {}", e.getMessage());
-                }
-            }
+        // 1. 유효성 검사
+        if (employeeId == null || employeeId.trim().isEmpty()) {
+            log.error("[로그 SSE 구독] 오류 : employeeId = {}", employeeId);
+            throw new BaseException(BaseResponseStatus.SSE_BAD_REQUEST);
         }
 
-        // 2. 새로운 emitter 생성
+        // 2. emitterId 생성 (고유 식별자)
+        String emitterId = employeeId;
+
+        // 3. 기존 emitter 존재 시 안전하게 제거
+        cleanupExistingEmitter(emitterId);
+
+        // 4. emitter 생성 및 등록
         SseEmitter emitter = new SseEmitter(DEFAULT_TIMEOUT);
         EmitterWithFilter filteredEmitter = new EmitterWithFilter(emitter, app, level);
-        emitters.put(employeeId, filteredEmitter);
+        emitters.put(emitterId, filteredEmitter);
 
         response.setHeader("X-Accel-Buffering", "no");
 
-        // 3. 연결 종료 혹은 에러 발생 시 제거
-        emitter.onCompletion(() -> emitters.remove(employeeId));
-        emitter.onTimeout(() -> emitters.remove(employeeId));
-        emitter.onError((e) -> emitters.remove(employeeId));
+        log.info("[로그 SSE 구독] 연결 완료 : employeeId = {}, emitterId = {}", employeeId, emitterId);
 
-        // 4. 연결 테스트용 초기 이벤트 전송
-        try {
-            emitter.send(SseEmitter.event().name("LOGGING_INIT").data("connected"));
-        } catch (IOException | IllegalStateException e) {
-            emitters.remove(employeeId);
-            emitter.completeWithError(e);
-            throw new BaseException(BaseResponseStatus.SSE_INIT_ERROR);
-        }
+        // 5. emitter 이벤트 콜백 등록 - Security Context 없이 안전하게 처리
+        setupEmitterCallbacks(emitter, emitterId);
 
-        log.info("[로그 SSE 구독] SSE 연결 완료: employeeId: {}", employeeId);
+        // 6. 클라이언트에 연결 초기 이벤트 전송
+        sendInitialEvent(emitter, emitterId);
 
+        log.info("[로그 SSE 구독] SSE 연결 완료 : emitterId = {}", emitterId);
         return emitter;
     }
 
     /**
-     * 로그 SSE 전송 (실시간으로 뜨는 로그를 하나씩)
+     * 기존 emitter 안전하게 정리
+     */
+    private void cleanupExistingEmitter(String emitterId) {
+        EmitterWithFilter existingWrapper = emitters.remove(emitterId);
+        if (existingWrapper != null) {
+            log.warn("[로그 SSE 구독] 기존 emitter 존재. 안전하게 제거 : emitterId = {}", emitterId);
+            try {
+                existingWrapper.getEmitter().complete();
+            } catch (Exception e) {
+                log.debug("[로그 SSE 구독] 기존 emitter 정리 중 예외 무시 : emitterId = {}, error = {}", 
+                         emitterId, e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Emitter 콜백 설정 - Security Context 없이 안전하게 처리
+     */
+    private void setupEmitterCallbacks(SseEmitter emitter, String emitterId) {
+        // onCompletion: 정상 완료 시
+        emitter.onCompletion(() -> {
+            log.info("[Emitter 완료] emitterId = {}", emitterId);
+            emitters.remove(emitterId);
+        });
+
+        // onTimeout: 타임아웃 시 - Security Context 사용 안함
+        emitter.onTimeout(() -> {
+            log.info("[Emitter 타임아웃] emitterId = {}", emitterId);
+            emitters.remove(emitterId);
+            // 명시적으로 complete 호출하지 않음 (이미 타임아웃됨)
+        });
+
+        // onError: 오류 발생 시 - Security Context 사용 안함
+        emitter.onError((throwable) -> {
+            log.error("[Emitter 오류 발생] emitterId = {}, error = {}", 
+                     emitterId, throwable.getMessage());
+            emitters.remove(emitterId);
+            // 에러 발생 시에도 명시적 complete 불필요
+        });
+    }
+
+    /**
+     * 초기 연결 이벤트 전송
+     */
+    private void sendInitialEvent(SseEmitter emitter, String emitterId) {
+        try {
+            String eventId = createTimeIncludeId(emitterId);
+            emitter.send(SseEmitter.event()
+                    .id(eventId)
+                    .name("LOGGING_INIT")
+                    .data("connected")
+                    .reconnectTime(3000L)); // 재연결 시간 설정
+
+            log.info("[로그 SSE 구독] SSE 초기 이벤트 전송 성공 : emitterId = {}, eventId = {}", emitterId, eventId);
+
+        } catch (IOException e) {
+            emitters.remove(emitterId);
+            log.error("[로그 SSE 구독] 초기 이벤트 전송 실패 : emitterId = {}, error = {}", 
+                     emitterId, e.getMessage());
+            throw new BaseException(BaseResponseStatus.SSE_INIT_ERROR);
+        } catch (IllegalStateException e) {
+            emitters.remove(emitterId);
+            log.error("[로그 SSE 구독] Emitter 상태 오류 : emitterId = {}, error = {}", 
+                     emitterId, e.getMessage());
+            throw new BaseException(BaseResponseStatus.SSE_INIT_ERROR);
+        }
+    }
+
+    private String createTimeIncludeId(String employeeId) {
+        return employeeId + "_" + System.currentTimeMillis();
+    }
+
+    /**
+     * 로그 SSE 전송 (실시간으로 뜨는 로그를 하나씩) - 안전한 전송 및 예외 처리
      */
     public void sendLogToUsers(LogDto logDto) {
-        log.info("[로그 SSE 전송] 서비스 진입");
+        log.info("[로그 SSE 전송] 서비스 진입 - app: {}, level: {}", logDto.getApp(), logDto.getLevel());
 
         List<String> deadEmitters = new ArrayList<>();
 
         // 현재 연결된 모든 emitter들에 대해
         for (Map.Entry<String, EmitterWithFilter> entry : emitters.entrySet()) {
             String employeeId = entry.getKey();
-            EmitterWithFilter e = entry.getValue();
+            EmitterWithFilter emitterWrapper = entry.getValue();
 
             // 로그 목록 조회 필터링 조건 체크
-            boolean appMatches = e.getAppFilter() == null || e.getAppFilter().equalsIgnoreCase(logDto.getApp());
-            boolean levelMatches = e.getLevelFilter() == null || e.getLevelFilter().equalsIgnoreCase(logDto.getLevel());
+            boolean appMatches = emitterWrapper.getAppFilter() == null || emitterWrapper.getAppFilter().equalsIgnoreCase(logDto.getApp());
+            boolean levelMatches = emitterWrapper.getLevelFilter() == null || emitterWrapper.getLevelFilter().equalsIgnoreCase(logDto.getLevel());
 
             // 필터링 조건 모두 만족하는 emitter에게만 전송
             if (appMatches && levelMatches) {
                 try {
-                    e.getEmitter().send(SseEmitter.event()
-                            .name("LOGGING")
-                            .data(logDto));
-                } catch (IOException ex) {
+                    // Thread-safe SSE 전송
+                    SseEmitter emitter = emitterWrapper.getEmitter();
+                    synchronized (emitter) {
+                        emitter.send(SseEmitter.event()
+                                .name("LOGGING")
+                                .id(createTimeIncludeId(employeeId))
+                                .data(logDto)
+                                .reconnectTime(3000L));
+                                
+                        log.debug("[로그 SSE 전송] 성공 - employeeId: {}, logId: {}", employeeId, logDto.getLogId());
+                    }
+                } catch (IOException ioEx) {
+                    log.error("[로그 SSE 전송 실패] employeeId = {}, error = {}", employeeId, ioEx.getMessage());
+                    deadEmitters.add(employeeId);
+                } catch (IllegalStateException stateEx) {
+                    log.error("[로그 SSE 전송 실패 - Emitter 상태 오류] employeeId = {}, error = {}", employeeId, stateEx.getMessage());
+                    deadEmitters.add(employeeId);
+                } catch (Exception ex) {
+                    log.error("[로그 SSE 전송 중 예기치 못한 오류] employeeId = {}, error = {}", employeeId, ex.getMessage(), ex);
                     deadEmitters.add(employeeId);
                 }
             }
         }
 
+        // 실패한 emitter들 제거
         deadEmitters.forEach(emitters::remove);
+        
+        if (!deadEmitters.isEmpty()) {
+            log.info("[로그 SSE 정리] 비활성 emitter {}개 제거", deadEmitters.size());
+        }
+        
+        log.debug("[로그 SSE 전송] 처리 완료 - 활성 emitter: {}개", emitters.size());
+    }
 
+    /**
+     * SSE 연결 상태 확인 및 정리
+     */
+    public void cleanupDisconnectedEmitters() {
+        emitters.entrySet().removeIf(entry -> {
+            String emitterId = entry.getKey();
+            SseEmitter emitter = entry.getValue().getEmitter();
+            
+            try {
+                // 간단한 heartbeat 전송으로 연결 상태 확인
+                emitter.send(SseEmitter.event()
+                        .name("heartbeat")
+                        .data("ping"));
+                return false; // 연결 유지
+            } catch (Exception e) {
+                log.info("[로그 SSE 정리] 비활성 emitter 제거 - emitterId: {}", emitterId);
+                return true; // 연결 끊어짐, 제거
+            }
+        });
+    }
+
+    /**
+     * 현재 활성 SSE 연결 수 반환
+     */
+    public int getActiveEmitterCount() {
+        return emitters.size();
     }
 
     /**

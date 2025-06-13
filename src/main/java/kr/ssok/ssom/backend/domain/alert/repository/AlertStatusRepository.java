@@ -28,6 +28,6 @@ public interface AlertStatusRepository extends JpaRepository<AlertStatus, Long> 
     // Kafka 중복 처리 방지를 위한 메서드 (Alert와 User 엔티티 기반)
     boolean existsByAlertAndUser(Alert alert, User user);
     
-    // AlertId와 UserId로 중복 체크 (성능 최적화)
-    boolean existsByAlert_IdAndUser_Id(Long alertId, String userId);
+    // alertId (PK)와 userId로 중복 체크 (성능 최적화)
+    boolean existsByAlert_AlertIdAndUser_Id(Long alertId, String userId);
 }

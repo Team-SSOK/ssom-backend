@@ -43,7 +43,7 @@ public class AlertKafkaConsumer {
      * Alert 생성 이벤트 소비
      * Alert가 생성된 후 대상 사용자들에게 개별 알림 이벤트 발행
      */
-    @KafkaListener(topics = "#{@kafkaConfig.alertCreatedTopic().name()}", containerFactory = "kafkaListenerContainerFactory")
+    @KafkaListener(topics = "#{@kafkaConfig.alertCreatedTopic().name()}", containerFactory = "alertCreatedKafkaListenerContainerFactory")
     @Transactional
     public void handleAlertCreated(
             AlertCreatedEvent event,
@@ -91,10 +91,10 @@ public class AlertKafkaConsumer {
      * 사용자별 알림 이벤트 소비
      * 개별 사용자에게 AlertStatus 생성 및 SSE/FCM 전송 (병렬 처리)
      */
-    @KafkaListener(topics = "#{@kafkaConfig.userAlertTopic().name()}", containerFactory = "kafkaListenerContainerFactory")
+    @KafkaListener(topics = "#{@kafkaConfig.userAlertTopic().name()}", containerFactory = "userAlertKafkaListenerContainerFactory")
     @Transactional
     public void handleUserAlert(
-            @Payload UserAlertEvent event,
+            UserAlertEvent event,
             @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
             @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
             @Header(KafkaHeaders.OFFSET) long offset,

@@ -1,6 +1,7 @@
 package kr.ssok.ssom.backend.domain.user.dto;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Disabled;
 import org.junit.platform.suite.api.SelectClasses;
 import org.junit.platform.suite.api.Suite;
 
@@ -9,6 +10,7 @@ import org.junit.platform.suite.api.Suite;
  * 모든 User DTO 테스트 클래스를 포함하여 일괄 실행할 수 있습니다.
  */
 @Suite
+@Disabled("UserDtoTestSuite 임시 비활성화")
 @SelectClasses({
         UserRequestDtoTest.class,
         UserResponseDtoTest.class,

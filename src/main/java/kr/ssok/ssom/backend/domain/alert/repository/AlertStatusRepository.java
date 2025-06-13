@@ -1,6 +1,8 @@
 package kr.ssok.ssom.backend.domain.alert.repository;
 
+import kr.ssok.ssom.backend.domain.alert.entity.Alert;
 import kr.ssok.ssom.backend.domain.alert.entity.AlertStatus;
+import kr.ssok.ssom.backend.domain.user.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,5 +18,16 @@ public interface AlertStatusRepository extends JpaRepository<AlertStatus, Long> 
     // 상태 변경 전 조회
     List<AlertStatus> findByUser_IdAndIsReadFalse(String employeeId);
     List<AlertStatus> findByUser_IdOrderByAlert_CreatedAtDesc(String employeeId);
+    
+    // 테스트용 카운트 메서드
+    long countByAlert_Id(String alertId);
+    
+    // Alert 엔티티의 id 필드로 검색하는 메서드 (String 타입)
+    boolean existsByAlert_Id(String alertId);
 
+    // Kafka 중복 처리 방지를 위한 메서드 (Alert와 User 엔티티 기반)
+    boolean existsByAlertAndUser(Alert alert, User user);
+    
+    // alertId (PK)와 userId로 중복 체크 (성능 최적화)
+    boolean existsByAlert_AlertIdAndUser_Id(Long alertId, String userId);
 }

@@ -51,6 +51,10 @@ dependencies {
     // lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+    
+    // lombok for test scope
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
 
     // Boot
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
@@ -83,6 +87,9 @@ dependencies {
     implementation 'org.springframework.kafka:spring-kafka'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     testImplementation 'org.springframework.kafka:spring-kafka-test'
+    
+    // Embedded Redis for testing
+    testImplementation 'it.ozimov:embedded-redis:0.7.3'
 
     // Firebase Cloud Message
     implementation 'com.google.firebase:firebase-admin:9.4.3'
@@ -97,4 +104,9 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    
+    // 성능 테스트만 실행하는 옵션
+    if (project.hasProperty('performanceTest')) {
+        include '**/performance/**'
+    }
 }

@@ -1,5 +1,7 @@
 package kr.ssok.ssom.backend.global.config;
 
+import kr.ssok.ssom.backend.domain.alert.dto.kafka.AlertCreatedEvent;
+import kr.ssok.ssom.backend.domain.alert.dto.kafka.UserAlertEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -174,7 +176,6 @@ public class KafkaConfig {
         
         // JSON 역직렬화 설정 강화
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "kr.ssok.ssom.backend.domain.alert.dto.kafka.AlertCreatedEvent");
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         props.put(JsonDeserializer.REMOVE_TYPE_INFO_HEADERS, false);
         
@@ -182,6 +183,66 @@ public class KafkaConfig {
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false); // 수동 커밋
         props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 10); // 한번에 처리할 레코드 수
+        props.put(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, 1);
+        props.put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, 500);
+        props.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, 3000);
+        props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 30000);
+        
+        return new DefaultKafkaConsumerFactory<>(props);
+    }
+
+    /**
+     * AlertCreatedEvent 전용 Consumer Factory
+     */
+    @Bean
+    public ConsumerFactory<String, AlertCreatedEvent> alertCreatedConsumerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
+        
+        // AlertCreatedEvent 전용 설정
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "kr.ssok.ssom.backend.domain.alert.dto.kafka.AlertCreatedEvent");
+        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        props.put(JsonDeserializer.REMOVE_TYPE_INFO_HEADERS, false);
+        
+        // Consumer 최적화 설정
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 10);
+        props.put(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, 1);
+        props.put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, 500);
+        props.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, 3000);
+        props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 30000);
+        
+        return new DefaultKafkaConsumerFactory<>(props);
+    }
+
+    /**
+     * UserAlertEvent 전용 Consumer Factory
+     */
+    @Bean
+    public ConsumerFactory<String, UserAlertEvent> userAlertConsumerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
+        
+        // UserAlertEvent 전용 설정
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "kr.ssok.ssom.backend.domain.alert.dto.kafka.UserAlertEvent");
+        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        props.put(JsonDeserializer.REMOVE_TYPE_INFO_HEADERS, false);
+        
+        // Consumer 최적화 설정
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 10);
         props.put(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, 1);
         props.put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, 500);
         props.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, 3000);
@@ -208,6 +269,46 @@ public class KafkaConfig {
                     consumerRecord.value(), 
                     exception.getMessage(), exception);
         }, new FixedBackOff(1000L, 3L))); // 1초 간격으로 3번 재시도
+        
+        return factory;
+    }
+
+    /**
+     * AlertCreatedEvent 전용 Container Factory
+     */
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, AlertCreatedEvent> alertCreatedKafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, AlertCreatedEvent> factory = 
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(alertCreatedConsumerFactory());
+        factory.setConcurrency(5); // Alert 생성은 상대적으로 낮은 동시성
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        
+        factory.setCommonErrorHandler(new DefaultErrorHandler((consumerRecord, exception) -> {
+            log.error("AlertCreated Consumer 에러 - Topic: {}, Partition: {}, Offset: {}, Key: {}, Value: {}, Error: {}", 
+                    consumerRecord.topic(), consumerRecord.partition(), consumerRecord.offset(),
+                    consumerRecord.key(), consumerRecord.value(), exception.getMessage(), exception);
+        }, new FixedBackOff(1000L, 3L)));
+        
+        return factory;
+    }
+
+    /**
+     * UserAlertEvent 전용 Container Factory
+     */
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, UserAlertEvent> userAlertKafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, UserAlertEvent> factory = 
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(userAlertConsumerFactory());
+        factory.setConcurrency(15); // 사용자 알림은 높은 동시성 필요
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        
+        factory.setCommonErrorHandler(new DefaultErrorHandler((consumerRecord, exception) -> {
+            log.error("UserAlert Consumer 에러 - Topic: {}, Partition: {}, Offset: {}, Key: {}, Value: {}, Error: {}", 
+                    consumerRecord.topic(), consumerRecord.partition(), consumerRecord.offset(),
+                    consumerRecord.key(), consumerRecord.value(), exception.getMessage(), exception);
+        }, new FixedBackOff(1000L, 3L)));
         
         return factory;
     }

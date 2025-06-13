@@ -14,7 +14,7 @@ SSOM 앱의 알림 관련 기능를 담당하는 모듈입니다.
 - Grafana 알림
 - Opensearch Dashboard 알림
 - Github 이슈 알림
-- Jenkins 및 ArgoCD 알림
+- Devops 알림
 
 ## 구조
 
@@ -72,7 +72,7 @@ alert/
 - `POST   /api/alert/grafana`: Grafana 알림
 - `POST   /api/alert/opensearch`: Opensearch Dashboard 알림
 - `POST   /api/alert/issue`: Github 이슈 알림
-- `POST   /api/alert/devops`: Jenkins 및 ArgoCD 알림
+- `POST   /api/alert/devops`: Devops (Jenkins 및 ArgoCD) 알림
 
 ## 에러 처리
 
@@ -84,8 +84,6 @@ public enum BaseResponseStatus {
     SSE_INIT_ERROR(false, 7002, "SSE 구독 처리 중 오류가 발생했습니다."),
     
     // 알림 관련 오류
-    SSE_BAD_REQUEST(false, 7001, "SSE 구독을 위한 사용자 정보가 전달되지 않았습니다."),
-    SSE_INIT_ERROR(false, 7002, "SSE 구독 처리 중 오류가 발생했습니다."),
     NOT_FOUND_ALERT(false, 7003, "Alert를 찾을 수 없습니다."),
     PARSING_ERROR(false, 7004, "Json Parsing 오류가 발생했습니다."),
     ALERT_TARGET_USER_NOT_FOUND(false, 7005, "Github 이슈 알림 공유 대상자가 조회되지 않습니다."),

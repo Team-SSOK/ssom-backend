@@ -15,9 +15,11 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -195,10 +197,16 @@ public class KafkaConfig {
         factory.setConcurrency(10); // 동시 처리 스레드 수 (병렬 처리)
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         
-        // 에러 핸들링 설정
-        factory.getContainerProperties().setErrorHandler((exception, data) -> {
-            log.error("Kafka Consumer 에러 발생 - Data: {}, Error: {}", data, exception.getMessage(), exception);
-        });
+        // 에러 핸들링 설정 - Spring Kafka 2.8+ 방식
+        factory.setCommonErrorHandler(new DefaultErrorHandler((consumerRecord, exception) -> {
+            log.error("Kafka Consumer 에러 발생 - Topic: {}, Partition: {}, Offset: {}, Key: {}, Value: {}, Error: {}", 
+                    consumerRecord.topic(), 
+                    consumerRecord.partition(), 
+                    consumerRecord.offset(),
+                    consumerRecord.key(), 
+                    consumerRecord.value(), 
+                    exception.getMessage(), exception);
+        }, new FixedBackOff(1000L, 3L))); // 1초 간격으로 3번 재시도
         
         return factory;
     }

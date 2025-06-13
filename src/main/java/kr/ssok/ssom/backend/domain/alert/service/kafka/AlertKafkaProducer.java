@@ -28,6 +28,9 @@ public class AlertKafkaProducer {
     
     @Value("${alert.kafka.topics.user-alert}")
     private String userAlertTopic;
+    
+    // DLQ 토픽명은 KafkaConfig의 deadLetterTopic Bean과 일치시킴
+    private final String dlqTopic = "alert-dlq-topic";
 
     /**
      * Alert 생성 이벤트 발행
@@ -81,6 +84,32 @@ public class AlertKafkaProducer {
             log.error("[Kafka] 사용자 알림 이벤트 발행 중 예외 - alertId: {}, userId: {}, topic: {}, error: {}", 
                     event.getAlertId(), event.getUserId(), userAlertTopic, e.getMessage(), e);
             throw new RuntimeException("Failed to publish user alert event", e);
+        }
+    }
+
+    /**
+     * DLQ로 실패한 이벤트 발행
+     * 최대 재시도를 초과한 실패 이벤트를 Dead Letter Queue로 전송
+     */
+    public void sendToDLQ(String key, Object payload) {
+        try {
+            CompletableFuture<SendResult<String, Object>> future = 
+                    kafkaTemplate.send(dlqTopic, key, payload);
+            
+            future.whenComplete((result, ex) -> {
+                if (ex == null) {
+                    log.info("[Kafka DLQ] 실패 이벤트 DLQ 발행 성공 - key: {}, topic: {}, partition: {}, offset: {}", 
+                            key, dlqTopic, result.getRecordMetadata().partition(), result.getRecordMetadata().offset());
+                } else {
+                    log.error("[Kafka DLQ] 실패 이벤트 DLQ 발행 실패 - key: {}, topic: {}, error: {}", 
+                            key, dlqTopic, ex.getMessage(), ex);
+                }
+            });
+            
+        } catch (Exception e) {
+            log.error("[Kafka DLQ] 실패 이벤트 DLQ 발행 중 예외 - key: {}, topic: {}, error: {}", 
+                    key, dlqTopic, e.getMessage(), e);
+            throw new RuntimeException("Failed to send to DLQ", e);
         }
     }
 }

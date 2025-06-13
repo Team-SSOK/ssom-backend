@@ -17,7 +17,6 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
-import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -90,6 +89,7 @@ public class AlertKafkaConsumer {
     /**
      * 사용자별 알림 이벤트 소비
      * 개별 사용자에게 AlertStatus 생성 및 SSE/FCM 전송 (병렬 처리)
+     * DLQ 및 최대 재시도 제한 적용
      */
     @KafkaListener(topics = "#{@kafkaConfig.userAlertTopic().name()}", containerFactory = "userAlertKafkaListenerContainerFactory")
     @Transactional
@@ -98,10 +98,15 @@ public class AlertKafkaConsumer {
             @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
             @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
             @Header(KafkaHeaders.OFFSET) long offset,
+            @Header(value = "retry-count", required = false) Integer retryCount,
             Acknowledgment acknowledgment) {
         
-        log.debug("[Kafka Consumer] 사용자 알림 이벤트 수신 - alertId: {}, userId: {}, topic: {}, partition: {}", 
-                event.getAlertId(), event.getUserId(), topic, partition);
+        // 재시도 횟수 확인 (기본값 0)
+        int currentRetryCount = retryCount != null ? retryCount : 0;
+        final int MAX_RETRY = 3; // 최대 3번 재시도
+        
+        log.debug("[Kafka Consumer] 사용자 알림 이벤트 수신 - alertId: {}, userId: {}, retry: {}/{}, topic: {}, partition: {}", 
+                event.getAlertId(), event.getUserId(), currentRetryCount, MAX_RETRY, topic, partition);
         
         try {
             // Alert 조회
@@ -139,11 +144,21 @@ public class AlertKafkaConsumer {
                     event.getAlertId(), event.getUserId());
             
         } catch (Exception e) {
-            log.error("[Kafka Consumer] 사용자 알림 처리 실패 - alertId: {}, userId: {}, error: {}", 
-                    event.getAlertId(), event.getUserId(), e.getMessage(), e);
+            log.error("[Kafka Consumer] 사용자 알림 처리 실패 - alertId: {}, userId: {}, retry: {}/{}, error: {}", 
+                    event.getAlertId(), event.getUserId(), currentRetryCount, MAX_RETRY, e.getMessage(), e);
             
-            // 오프셋 커밋하지 않음 (재처리됨)
-            throw new RuntimeException("Failed to process user alert event", e);
+            if (currentRetryCount >= MAX_RETRY) {
+                // 최대 재시도 초과 시 DLQ로 전송하고 오프셋 커밋
+                sendToDLQ(event, e, currentRetryCount, topic, partition, offset);
+                acknowledgment.acknowledge();
+                log.error("[Kafka Consumer] 최대 재시도 초과, DLQ로 전송 및 오프셋 커밋 - alertId: {}, userId: {}", 
+                        event.getAlertId(), event.getUserId());
+            } else {
+                // 재시도를 위해 오프셋 커밋하지 않음 (Kafka가 자동 재시도)
+                log.warn("[Kafka Consumer] 재시도 예정 - alertId: {}, userId: {}, retry: {}/{}", 
+                        event.getAlertId(), event.getUserId(), currentRetryCount + 1, MAX_RETRY);
+                throw new RuntimeException("Retryable error occurred", e);
+            }
         }
     }
 
@@ -166,5 +181,37 @@ public class AlertKafkaConsumer {
                     return false;
                 })
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * DLQ로 실패한 이벤트 전송
+     * 최대 재시도 초과 시 호출되어 Dead Letter Queue로 메시지 전송
+     */
+    private void sendToDLQ(UserAlertEvent originalEvent, Exception error, int retryCount, String topic, int partition, long offset) {
+        try {
+            // DLQ용 페이로드 생성
+            java.util.Map<String, Object> dlqPayload = new java.util.HashMap<>();
+            dlqPayload.put("originalEvent", originalEvent);
+            dlqPayload.put("errorMessage", error.getMessage());
+            dlqPayload.put("errorClass", error.getClass().getSimpleName());
+            dlqPayload.put("retryCount", retryCount);
+            dlqPayload.put("failureTime", System.currentTimeMillis());
+            dlqPayload.put("originalTopic", topic);
+            dlqPayload.put("originalPartition", partition);
+            dlqPayload.put("originalOffset", offset);
+            
+            // DLQ 토픽으로 전송 (사용자 ID를 키로 사용하여 파티셔닝)
+            alertKafkaProducer.sendToDLQ(originalEvent.getUserId(), dlqPayload);
+            
+            log.info("[DLQ] 실패 이벤트 DLQ로 전송 완료 - alertId: {}, userId: {}, retryCount: {}", 
+                    originalEvent.getAlertId(), originalEvent.getUserId(), retryCount);
+            
+        } catch (Exception dlqError) {
+            log.error("[DLQ] DLQ 전송 실패 - alertId: {}, userId: {}, error: {}. 원본 에러: {}", 
+                    originalEvent.getAlertId(), originalEvent.getUserId(), 
+                    dlqError.getMessage(), error.getMessage());
+            // DLQ 전송도 실패하면 로그만 남김 (더 이상 할 수 있는 것이 없음)
+            // 이 경우 운영팀이 로그를 통해 수동으로 처리해야 함
+        }
     }
 }

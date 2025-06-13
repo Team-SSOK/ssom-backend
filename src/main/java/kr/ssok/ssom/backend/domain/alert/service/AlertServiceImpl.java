@@ -5,6 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import kr.ssok.ssom.backend.domain.alert.dto.*;
+import kr.ssok.ssom.backend.domain.alert.dto.kafka.AlertCreatedEvent;
+import kr.ssok.ssom.backend.domain.alert.dto.kafka.UserAlertEvent;
+import kr.ssok.ssom.backend.domain.alert.service.kafka.AlertKafkaProducer;
 import kr.ssok.ssom.backend.domain.alert.entity.Alert;
 import kr.ssok.ssom.backend.domain.alert.entity.AlertStatus;
 import kr.ssok.ssom.backend.domain.alert.entity.constant.AlertKind;
@@ -53,6 +56,9 @@ public class AlertServiceImpl implements AlertService {
     private final AlertRepository alertRepository;
     private final AlertStatusRepository alertStatusRepository;
     private final UserRepository userRepository;
+    
+    // Kafka Producer 추가
+    private final AlertKafkaProducer alertKafkaProducer;
 
     /**
      * 알림 SSE 구독
@@ -806,6 +812,243 @@ public class AlertServiceImpl implements AlertService {
 
         } catch (Exception e) {
             log.error("[FCM 전송 실패] 알 수 없는 오류 : employeeId = {}, error = {}", employeeId, e.getMessage(), e);
+        }
+    }
+
+    // =================================== 비동기 처리 메서드들 ===================================
+
+    /**
+     * 그라파나 알림 비동기 처리
+     * Alert만 저장 후 즉시 응답, AlertStatus 생성 및 알림 전송은 Kafka를 통해 비동기 처리
+     */
+    @Override
+    @Transactional
+    public void createGrafanaAlertAsync(AlertGrafanaRequestDto requestDto) {
+        log.info("[그라파나 알림 비동기] 서비스 진입 : alertCount = {}", 
+                requestDto != null && requestDto.getAlerts() != null ? requestDto.getAlerts().size() : 0);
+
+        try {
+            // 1. 요청값 검증
+            if (requestDto == null || requestDto.getAlerts() == null || requestDto.getAlerts().isEmpty()) {
+                log.warn("[그라파나 알림 비동기] 전달받은 알림 리스트가 비어있습니다.");
+                return;
+            }
+
+            List<AlertRequestDto> alertList = requestDto.getAlerts();
+
+            // 2. 각 알림에 대해 Alert만 저장하고 Kafka 이벤트 발행
+            for (AlertRequestDto alertRequest : alertList) {
+                try {
+                    createAlertAsync(alertRequest, AlertKind.GRAFANA);
+                } catch (Exception e) {
+                    log.error("[그라파나 알림 비동기] 개별 알림 처리 실패 : alertRequest = {}, error = {}", 
+                            alertRequest, e.getMessage(), e);
+                }
+            }
+
+            log.info("[그라파나 알림 비동기] 전체 {}건 Alert 저장 및 Kafka 이벤트 발행 완료", alertList.size());
+
+        } catch (Exception e) {
+            log.error("[그라파나 알림 비동기] 전체 처리 중 예외 발생 : error = {}", e.getMessage(), e);
+            throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * 오픈서치 알림 비동기 처리
+     */
+    @Override
+    @Transactional
+    public void createOpensearchAlertAsync(String requestStr) {
+        log.info("[오픈서치 알림 비동기] 서비스 진입");
+
+        try {
+            if (requestStr == null || requestStr.isEmpty()) {
+                log.warn("[오픈서치 알림 비동기] 전달받은 원본 데이터가 비어있습니다.");
+                return;
+            }
+
+            List<AlertRequestDto> alertList = parseRawStringToDtoList(requestStr);
+
+            if (alertList == null || alertList.isEmpty()) {
+                log.warn("[오픈서치 알림 비동기] Json 파싱 결과 알림 리스트가 비어있습니다.");
+                return;
+            }
+
+            for (AlertRequestDto alertRequest : alertList) {
+                try {
+                    createAlertAsync(alertRequest, AlertKind.OPENSEARCH);
+                } catch (Exception e) {
+                    log.error("[오픈서치 알림 비동기] 개별 알림 처리 실패 : alertRequest = {}, error = {}", 
+                            alertRequest, e.getMessage(), e);
+                }
+            }
+
+            log.info("[오픈서치 알림 비동기] 전체 {}건 Alert 저장 및 Kafka 이벤트 발행 완료", alertList.size());
+
+        } catch (Exception e) {
+            log.error("[오픈서치 알림 비동기] 전체 처리 중 예외 발생 : error = {}", e.getMessage(), e);
+            throw new BaseException(BaseResponseStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * GitHub 이슈 알림 비동기 처리
+     */
+    @Override
+    @Transactional
+    public void createIssueAlertAsync(AlertIssueRequestDto requestDto) {
+        log.info("[GitHub 이슈 알림 비동기] 서비스 진입 : action = {}", requestDto.getAction());
+
+        try {
+            // 0. 'ssom' 또는 'SSOM' 라벨이 있는지 확인
+            boolean hasSsomLabel = requestDto.getIssue().getLabels().stream()
+                    .anyMatch(label -> label.getName().equalsIgnoreCase("ssom"));
+
+            if (!hasSsomLabel) {
+                log.info("[GitHub 이슈 알림 비동기] 'ssom' 라벨이 없어 알림을 생성하지 않음");
+                return;
+            }
+
+            // 1. action 에 따라 title 설정
+            String alertTitle;
+            switch (requestDto.getAction()) {
+                case "opened":
+                    alertTitle = "[ISSUE] Opened";
+                    break;
+                case "reopened":
+                    alertTitle = "[ISSUE] Reopened";
+                    break;
+                case "closed":
+                    alertTitle = "[ISSUE] Closed";
+                    break;
+                default:
+                    log.warn("[GitHub 이슈 알림 비동기] 지원하지 않는 action 값: {}", requestDto.getAction());
+                    return;
+            }
+
+            // 2. Alert 저장
+            Alert alert = Alert.builder()
+                    .id(AlertKind.ISSUE + "_" + System.currentTimeMillis())
+                    .title(alertTitle)
+                    .message("Github 이슈가 공유되었습니다.")
+                    .kind(AlertKind.ISSUE)
+                    .timestamp(requestDto.getIssue().getCreatedAt())
+                    .build();
+            Alert savedAlert = alertRepository.save(alert);
+
+            // 3. 알림 대상자 조회
+            List<String> sharedLogins = requestDto.getIssue().getAssignees().stream()
+                    .map(AlertIssueRequestDto.Assignee::getLogin)
+                    .collect(Collectors.toList());
+
+            if (sharedLogins.isEmpty()) {
+                log.warn("[GitHub 이슈 알림 비동기] 공유 대상자가 지정되지 않음");
+                return;
+            }
+
+            List<User> targetUsers = userRepository.findAllByGithubIdIn(sharedLogins);
+            if (targetUsers.isEmpty()) {
+                log.warn("[GitHub 이슈 알림 비동기] 공유 대상자가 존재하지 않음: {}", sharedLogins);
+                return;
+            }
+
+            // 4. 각 대상 사용자에게 개별 알림 이벤트 발행 (비동기)
+            for (User user : targetUsers) {
+                UserAlertEvent userEvent = UserAlertEvent.of(savedAlert.getAlertId(), user.getId());
+                alertKafkaProducer.publishUserAlert(userEvent);
+            }
+
+            log.info("[GitHub 이슈 알림 비동기] Alert 저장 및 {}명 사용자 알림 이벤트 발행 완료", targetUsers.size());
+
+        } catch (Exception e) {
+            log.error("[GitHub 이슈 알림 비동기] 처리 중 예외 발생", e);
+            throw new BaseException(BaseResponseStatus.ALERT_CREATE_FAILED);
+        }
+    }
+
+    /**
+     * DevOps 알림 비동기 처리
+     */
+    @Override
+    @Transactional
+    public void createDevopsAlertAsync(AlertDevopsRequestDto requestDto) {
+        log.info("[DevOps 알림 비동기] 서비스 진입 : app = {}", requestDto.getApp());
+
+        if (requestDto == null || requestDto.getApp() == null || requestDto.getApp().trim().isEmpty()) {
+            log.error("[DevOps 알림 비동기] requestDto 또는 app 필드가 null 또는 빈 값입니다.");
+            throw new BaseException(BaseResponseStatus.INVALID_REQUEST);
+        }
+
+        // 1. app에서 alertKind와 appName 파싱
+        String[] appParts = requestDto.getApp().split("_");
+        if (appParts.length != 2) {
+            log.error("[DevOps 알림 비동기] 잘못된 app 형식입니다. 예: jenkins_ssok-bank, app={}", requestDto.getApp());
+            throw new BaseException(BaseResponseStatus.INVALID_REQUEST);
+        }
+
+        String kindStr = appParts[0].toUpperCase(); // "JENKINS", "ARGOCD"
+        String appName = appParts[1];               // "ssok-bank"
+
+        AlertKind devopsKind;
+        try {
+            devopsKind = AlertKind.valueOf(kindStr);
+            AlertRequestDto alertRequest = AlertRequestDto.builder()
+                    .id(devopsKind + "_" + System.currentTimeMillis())
+                    .level(requestDto.getLevel())
+                    .app(appName)
+                    .timestamp(requestDto.getTimestamp())
+                    .message(requestDto.getMessage())
+                    .build();
+
+            createAlertAsync(alertRequest, devopsKind);
+
+        } catch (IllegalArgumentException e) {
+            log.error("[DevOps 알림 비동기] 지원하지 않는 AlertKind입니다: {}", kindStr, e);
+            throw new BaseException(BaseResponseStatus.UNSUPPORTED_ALERT_KIND);
+        } catch (Exception e) {
+            log.error("[DevOps 알림 비동기] 알림 생성 중 예외 발생", e);
+            throw new BaseException(BaseResponseStatus.ALERT_CREATE_FAILED);
+        }
+
+        log.info("[DevOps 알림 비동기] 서비스 처리 완료");
+    }
+
+    /**
+     * 비동기 Alert 생성 (공통)
+     * Alert만 저장하고 Kafka 이벤트 발행
+     */
+    @Transactional
+    private void createAlertAsync(AlertRequestDto request, AlertKind kind) {
+        log.debug("[비동기 Alert 생성] alertId = {}, kind = {}", request.getId(), kind);
+
+        try {
+            // 1. Alert만 저장 (빠른 처리)
+            Alert alert = Alert.builder()
+                    .id(request.getId())
+                    .title("[" + request.getLevel() + "] " + request.getApp())
+                    .message(request.getMessage())
+                    .kind(kind)
+                    .timestamp(request.getTimestamp())
+                    .build();
+
+            Alert savedAlert = alertRepository.save(alert);
+
+            // 2. Kafka 이벤트 발행 (AlertStatus 생성 및 알림 전송은 Consumer에서 비동기 처리)
+            AlertCreatedEvent event = AlertCreatedEvent.of(
+                    savedAlert.getAlertId(), 
+                    kind, 
+                    request.getApp()
+            );
+            
+            alertKafkaProducer.publishAlertCreated(event);
+
+            log.debug("[비동기 Alert 생성] Alert 저장 및 Kafka 이벤트 발행 완료 - alertId = {}", savedAlert.getAlertId());
+
+        } catch (Exception e) {
+            log.error("[비동기 Alert 생성] 실패 - alertId = {}, kind = {}, error = {}", 
+                    request.getId(), kind, e.getMessage(), e);
+            throw new BaseException(BaseResponseStatus.ALERT_CREATE_FAILED);
         }
     }
 

@@ -17,10 +17,17 @@ public interface AlertService {
     List<AlertResponseDto> modifyAllAlertStatus(String employeeId);
     void deleteAlert(AlertModifyRequestDto request);
 
+    // 기존 동기 처리 메서드들
     void createGrafanaAlert(AlertGrafanaRequestDto requestDto);
     void createOpensearchAlert(String requestStr);
     void createIssueAlert(AlertIssueRequestDto requestDto);
     void createDevopsAlert(AlertDevopsRequestDto requestDto);
+
+    // 새로운 비동기 처리 메서드들
+    void createGrafanaAlertAsync(AlertGrafanaRequestDto requestDto);
+    void createOpensearchAlertAsync(String requestStr);
+    void createIssueAlertAsync(AlertIssueRequestDto requestDto);
+    void createDevopsAlertAsync(AlertDevopsRequestDto requestDto);
 
     void createAlert(AlertRequestDto request, AlertKind kind);
     void sendAlertToUser(String employeeId, AlertResponseDto alertResponseDto);

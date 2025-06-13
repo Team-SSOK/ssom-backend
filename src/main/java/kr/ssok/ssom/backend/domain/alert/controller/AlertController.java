@@ -192,9 +192,11 @@ public class AlertController {
     public ResponseEntity<BaseResponse<Void>> sendGrafanaAlert(@RequestBody AlertGrafanaRequestDto requestDto) {
         log.info("[그라파나 알림] 컨트롤러 진입");
 
-        alertService.createGrafanaAlert(requestDto);
+        // 비동기 처리로 변경 - 즉시 응답
+        alertService.createGrafanaAlertAsync(requestDto);
+        
         return ResponseEntity
-                .status(HttpStatus.CREATED)
+                .status(HttpStatus.ACCEPTED) // 202 Accepted (비동기 처리)
                 .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
 
@@ -203,9 +205,11 @@ public class AlertController {
     public ResponseEntity<BaseResponse<Void>> sendOpensearchAlert(@RequestBody String requestStr) {
         log.info("[오픈서치 대시보드 알림] 컨트롤러 진입");
 
-        alertService.createOpensearchAlert(requestStr);
+        // 비동기 처리로 변경 - 즉시 응답
+        alertService.createOpensearchAlertAsync(requestStr);
+        
         return ResponseEntity
-                .status(HttpStatus.CREATED)
+                .status(HttpStatus.ACCEPTED) // 202 Accepted (비동기 처리)
                 .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
 
@@ -214,11 +218,12 @@ public class AlertController {
     public ResponseEntity<BaseResponse<Void>> sendIssueAlert(@RequestBody AlertIssueRequestDto requestDto) {
         log.info("[Github 이슈 알림] 컨트롤러 진입");
 
-        alertService.createIssueAlert(requestDto);
-        issueService.updateGitHubIssueStatus(requestDto);
+        // 비동기 처리로 변경 - 즉시 응답
+        alertService.createIssueAlertAsync(requestDto);
+        issueService.updateGitHubIssueStatus(requestDto); // 이슈 상태 업데이트는 동기 처리
 
         return ResponseEntity
-                .status(HttpStatus.CREATED)
+                .status(HttpStatus.ACCEPTED) // 202 Accepted (비동기 처리)
                 .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
 
@@ -227,9 +232,11 @@ public class AlertController {
     public ResponseEntity<BaseResponse<Void>> sendDevopsAlert(@RequestBody AlertDevopsRequestDto requestDto) {
         log.info("[Devops 알림] 컨트롤러 진입");
 
-        alertService.createDevopsAlert(requestDto);
+        // 비동기 처리로 변경 - 즉시 응답
+        alertService.createDevopsAlertAsync(requestDto);
+        
         return ResponseEntity
-                .status(HttpStatus.CREATED)
+                .status(HttpStatus.ACCEPTED) // 202 Accepted (비동기 처리)
                 .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
 }

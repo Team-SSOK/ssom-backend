@@ -55,6 +55,7 @@ public class SecurityConfig {
             "/actuator/prometheus",
             "/api/alert/grafana",
             "/api/alert/opensearch",
+            "/api/alert/opensearch/sync",
             "/api/alert/issue",
             "/api/alert/devops",
             "/api/issue/webhook/github",

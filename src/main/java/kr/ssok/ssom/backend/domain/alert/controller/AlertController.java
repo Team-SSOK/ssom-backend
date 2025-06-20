@@ -239,4 +239,16 @@ public class AlertController {
                 .status(HttpStatus.ACCEPTED) // 202 Accepted (비동기 처리)
                 .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
     }
+
+    // 비동기 방식 오픈서치 대시보드 알림
+    @Operation(summary = "오픈서치 대시보드 알림", description = "오픈서치 대시보드 알림 데이터를 받아 앱으로 전송합니다.")
+    @PostMapping("/opensearch/sync")
+    public ResponseEntity<BaseResponse<Void>> sendOpensearchAlertSync(@RequestBody String requestStr) {
+        log.info("[오픈서치 대시보드 알림] 컨트롤러 진입");
+
+        alertService.createOpensearchAlert(requestStr);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(new BaseResponse<>(BaseResponseStatus.SUCCESS));
+    }
 }

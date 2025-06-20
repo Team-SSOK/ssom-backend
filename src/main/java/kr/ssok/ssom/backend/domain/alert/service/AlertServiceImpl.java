@@ -667,12 +667,14 @@ public class AlertServiceImpl implements AlertService {
      */
     public void sendAlertToUser(String employeeId, AlertResponseDto responseDto) {
         try {
-            if (isUserConnectedViaSse(employeeId)) {
-                sendSseAlertToUser(employeeId, responseDto);
-            } else {
-                log.info("[앱 외부 감지, FCM 전송] employeeId = {}", employeeId);
-                sendFcmNotification(employeeId, responseDto);
-            }
+//            if (isUserConnectedViaSse(employeeId)) {
+//                sendSseAlertToUser(employeeId, responseDto);
+//            } else {
+//                log.info("[앱 외부 감지, FCM 전송] employeeId = {}", employeeId);
+//                sendFcmNotification(employeeId, responseDto);
+//            }
+            // 푸시알림 부분 Jmeter 테스트를 위한 sleep 처리
+            Thread.sleep(1000);
         } catch (Exception e) {
             log.error("[알림 전송 실패] employeeId = {}, error = {}", employeeId, e.getMessage(), e);
             // throw new RuntimeException("알림 전송 중 오류 발생", e);

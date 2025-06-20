@@ -30,10 +30,7 @@ public interface AlertStatusRepository extends JpaRepository<AlertStatus, Long> 
     
     // alertId (PK)와 userId로 중복 체크 (성능 최적화)
     boolean existsByAlert_AlertIdAndUser_Id(Long alertId, String userId);
-    
-    // 성능 테스트를 위한 추가 메서드들
-    long countByCreatedAtAfter(LocalDateTime dateTime);
-    
+
     void deleteByAlert_AlertId(Long alertId);
 }
 

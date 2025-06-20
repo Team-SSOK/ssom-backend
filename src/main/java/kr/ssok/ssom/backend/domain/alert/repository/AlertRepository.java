@@ -16,9 +16,7 @@ public interface AlertRepository extends JpaRepository<Alert, Long> {
     
     // 성능 테스트를 위한 추가 메서드들
     List<Alert> findByIdContaining(String keyword);
-    
-    long countByCreatedAtAfter(LocalDateTime dateTime);
-    
+
     Optional<Alert> findByAlertId(Long alertId);
 }
 
